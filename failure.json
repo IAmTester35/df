@@ -2928,5 +2928,490 @@
         "cdkey": "GARENADFNY25O1C158",
         "message": "The current cdk does not match",
         "response_code": 400054
+    },
+    {
+        "cdkey": "DJBPTMNMIWODELJOL",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DFIWTXD01",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "DFIWTXD001",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "12/14",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIWDAY4LETSGO",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "WHOWILLWIN",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWTXD913",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "12/13",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIWDAY3WAW",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWDAY3HANOI",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "12/12",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIWDAY2TADA",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWDAY2HUHU",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWDAY2M3",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "GIVEMETHAT（限500）",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "12/11",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIWDAY1START",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWDAY1OPOP",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWDAY1YOYO",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIWSURPRISE（限500）",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "12/07",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "2Pac(jack31335)提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "軒(gs10603)提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "12/06",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/29",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/24",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/23",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/17",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "夜風(ro0907944695)提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/16",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "微冰(ap542759)提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/15",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/14",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "Vettle（thingie）提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/12",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/8",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFFinally1107",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "11/4",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/2",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "11/1",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/31",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/30",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/26",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/25",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/24",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "lll831119lll(lll831119lll)提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/20",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "10/18",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/30",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/21",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIZERODAMGS",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIBRAKKESHMG",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIBRAKKESHLEG",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFISPACECITYISG",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFISPACECITYMDB",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFISPACECITYECMO",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "9/20",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIXDTZBGB",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIYZJHYDT",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIXTMXDHY",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "水君(blair520)提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/19",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFIPTFGJGFS",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIPTFGASLGI",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFIPTFGZSKG",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "9/18",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "幽靈兒（misia7296）提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/15",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/14",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/13",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/8",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/7",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "9/6",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "8/22",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "GARENADF2503K8F3",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "GARENADFX9B7Q2",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "GARENADFQ1H8SZ",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "GARENADFM4Z8YJ",
+        "message": "current cdkey present error",
+        "response_code": 400073
+    },
+    {
+        "cdkey": "08/19",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "人生online小萌新",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "https://forum.gamer.com.tw/Co.php?bsn=78342&sn=4551",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "08/09",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "08/08",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "07/05",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "05/31",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "F53GfqxYCyK8nd8hs3Hn",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "rNjaU7xYzDy9GZGd88su",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "F53GfqxYcQCR4eTvejWM",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "K28vyRxYQZYJdD5JhNH6",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "SJZXDHmVxjsnsjmwro",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DX202602",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DX202603",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DX202601",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "JDPT6-4UQ7S-7FUI3",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "SJZXCZNc6hqwzo4lv",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DJLEyABPOLXB5V13LC",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DJhD4JnhO8UKHCJHPN",
+        "message": "The current cdk does not match",
+        "response_code": 400054
     }
 ]
