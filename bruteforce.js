@@ -9,6 +9,8 @@ const { redeemCode, CHUNK_SIZE, DELAY_BETWEEN_CHUNKS } = require('./config');
 async function startBruteForce() {
     const files = ['./success.json', './failure.json'];
     let allCodes = new Set();
+    let failedResults = [];
+    const excludeCodes = [51, 400070, 400054];
 
     // 1. Thu thập tất cả code từ các file JSON
     files.forEach(file => {
@@ -17,8 +19,13 @@ async function startBruteForce() {
                 const data = JSON.parse(fs.readFileSync(file, 'utf8') || "[]");
                 if (Array.isArray(data)) {
                     data.forEach(item => {
-                        const code = (item.cdkey || item.code || "").toString().replace(/["\u200b\u200c\u200d\uFEFF]/g, '').trim();
-                        if (code) allCodes.add(code);
+                        const code = (item.cdkey || item.code || "").toString().replace(/["\u200b\u200c\u200d\FEFF]/g, '').trim();
+
+                        const oldResponseCode = item.response_code || item.code;
+
+                        if (code && !excludeCodes.includes(Number(oldResponseCode))) {
+                            allCodes.add(code);
+                        }
                     });
                 }
             } catch (e) {
