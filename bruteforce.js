@@ -9,8 +9,7 @@ const { redeemCode, CHUNK_SIZE, DELAY_BETWEEN_CHUNKS } = require('./config');
 async function startBruteForce() {
     const files = ['./success.json', './failure.json'];
     let allCodes = new Set();
-    let failedResults = [];
-    const excludeCodes = [51, 400070, 400054];
+    const excludeCodes = [51, 400070, 400054, 400068]; // Remove code from error [system error, The end time has passed, The current cdk does not match, The current cdkey has reached the redemption limit]
 
     // 1. Thu thập tất cả code từ các file JSON
     files.forEach(file => {
