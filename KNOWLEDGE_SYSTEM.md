@@ -32,17 +32,19 @@ Dự án sử dụng ngôn ngữ thiết kế **Nordic Glass SPA** (Bắc Âu C�
 
 ---
 
-## 📂 3. Cấu trúc dữ liệu Firebase (V4.0 Super-Compact)
-Dữ liệu được lưu trữ theo cơ chế **Siêu Nén** để tiết kiệm tối đa băng thông Firebase RTDB.
+## 📂 3. Cấu trúc dữ liệu Firebase (V5.2 Ultra-Compact)
+Dữ liệu được nén bit-packing để đạt hiệu quả băng thông tối thượng.
 
-### Phân cấp Node:
-Toàn bộ dữ liệu nằm dưới node gốc `codes/`.
--   **Nhánh `s` (Success)**: `{ "SAFE_KEY": UnixTimestamp }`
--   **Nhánh `f` (Failure)**: `{ "SAFE_KEY": "ErrorCode|UnixTimestamp" }`
+### Cấu trúc Node:
+Toàn bộ mã nằm trong node `c/`.
+- **Key**: `SAFE_KEY` (CDKey đã được escape).
+- **Value**: `Timestamp * 10 + Status` (Loại: Number).
+  - `Status = 0`: Thành công (Success).
+  - `Status = 1`: Đầy giới hạn (Limit - 400067).
 
-### Xử lý Key đặc biệt (Firebase Sanitization):
-Các ký tự bị Firebase cấm được mã hóa bằng hàm `escapeFirebaseKey()`:
--   `.` → `%2E` | `/` → `%2F` | `#` → `%23` | `$` → `%24` | `[` → `%5B` | `]` → `%5D`
+### Cơ chế Đồng bộ:
+- **Delta Sync**: Client chỉ tải phần chênh lệch dựa trên `lastSyncTime` sử dụng `query(ref(db, 'c'), orderByValue(), startAfter(lastSync * 10 + 9))`.
+- **O(1) Write**: Sử dụng `update()` đích danh vào node con, không dùng Transaction.
 
 ---
 
@@ -68,6 +70,7 @@ Công cụ thử lại các mã tiềm năng dựa trên lịch sử.
 -   [App.tsx](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/DF-RedeemCode/src/App.tsx): Code ứng dụng React chính.
 -   [sync_to_rtdb.js](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/sync_to_rtdb.js): Script đồng bộ dữ liệu V4.0.
 -   [bruteforce.js](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/bruteforce.js): Script quét lại mã lỗi.
+-   [index.js](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/index.js): Script test CDKey mới từ code.txt.
 -   [success.json](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/success.json) / [failure.json](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/failure.json): Cơ sở dữ liệu lịch sử Offline.
 -   [code.txt](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/code.txt): Nguồn nhập mã CDKey thô.
 

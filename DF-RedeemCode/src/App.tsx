@@ -9,10 +9,21 @@ import {
   CheckCircle2, 
   XCircle, 
   Database,
-  Cloud
+  Cloud,
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { ref, onValue, set } from "firebase/database";
+import { 
+  ref, 
+  onValue, 
+  get, 
+  update,
+  query,
+  orderByValue,
+  limitToLast,
+  startAfter
+} from "firebase/database";
+
 
 interface RedeemHistory {
   id: string;
@@ -44,12 +55,33 @@ const escapeFirebaseKey = (key: string) => {
     .replace(/\]/g, '%5D');
 };
 
+const LOCAL_STORAGE_KEY = 'df_history_v5';
+const LOCAL_SYNC_TIME_KEY = 'df_last_sync_v5';
+
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<RedeemHistory[]>([]);
+  
+  const [lastSyncTime, setLastSyncTime] = useState<number>(0);
+  const [hasNewCodes, setHasNewCodes] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
+    // 1. Load from Local
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        setHistory(JSON.parse(stored));
+      }
+      const storedSync = localStorage.getItem(LOCAL_SYNC_TIME_KEY);
+      if (storedSync) {
+        setLastSyncTime(Number(storedSync));
+      }
+    } catch (e) {
+      console.error("Local load error", e);
+    }
+
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -58,54 +90,24 @@ const App = () => {
       }
     });
 
-    // Lắng nghe dữ liệu từ Firebase RTDB (Cấu trúc V4.0)
-    const codesRef = ref(db, 'codes');
-    const unsubscribeDb = onValue(codesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) {
-        setHistory([]);
-        return;
-      }
-
-      const combinedHistory: RedeemHistory[] = [];
-
-      // Parse nhánh 's' (Success)
-      if (data.s) {
-        Object.entries(data.s).forEach(([safeKey, timestamp]) => {
-          combinedHistory.push({
-            id: `s-${safeKey}`,
-            cdkey: unescapeFirebaseKey(safeKey),
-            status: 'success',
-            message: 'Thành công',
-            timestamp: (timestamp as number) * 1000 // Chuyển từ Unix s sang ms
-          });
-        });
-      }
-
-      // Parse nhánh 'f' (Failure)
-      if (data.f) {
-        Object.entries(data.f).forEach(([safeKey, value]) => {
-          const [code, timestamp] = (value as string).split('|');
-          combinedHistory.push({
-            id: `f-${safeKey}`,
-            cdkey: unescapeFirebaseKey(safeKey),
-            status: 'failure',
-            message: `Lỗi ${code}`,
-            timestamp: parseInt(timestamp) * 1000
-          });
-        });
-      }
-
-      // Sắp xếp theo thời gian mới nhất lên đầu
-      combinedHistory.sort((a, b) => b.timestamp - a.timestamp);
-      setHistory(combinedHistory);
+    // 2. Listen for ANY new code (delta notification)
+    const latestQuery = query(ref(db, 'c'), orderByValue(), limitToLast(1));
+    const unsubscribeDb = onValue(latestQuery, (snapshot) => {
+      snapshot.forEach((child) => {
+        const val = child.val() as number;
+        const ts = Math.floor(val / 10);
+        // Nếu có mã mới hơn mốc local sync -> Báo hiệu có code mới
+        if (ts > lastSyncTime) {
+          setHasNewCodes(true);
+        }
+      });
     });
 
     return () => {
       unsubscribeAuth();
       unsubscribeDb();
     };
-  }, []);
+  }, [lastSyncTime]);
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
@@ -118,21 +120,115 @@ const App = () => {
 
   const handleLogout = () => signOut(auth);
 
+  // Helper: Save to Local & Update Sync Time
+
+  const saveToLocal = (newHistory: RedeemHistory[]) => {
+    // Tìm mốc timestamp lớn nhất để làm mốc sync tiếp theo
+    const maxTs = Math.max(0, ...newHistory.map(h => Math.floor(h.timestamp / 1000)));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newHistory));
+    localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTs.toString());
+    setHistory(newHistory.sort((a, b) => b.timestamp - a.timestamp));
+    setLastSyncTime(maxTs);
+    setHasNewCodes(false);
+  };
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      // Delta Sync: Chỉ lấy những mã có value > (lastSyncTime * 10 + 9)
+      const syncQuery = query(
+        ref(db, 'c'), 
+        orderByValue(), 
+        startAfter(lastSyncTime * 10 + 9)
+      );
+      
+      const snapshot = await get(syncQuery);
+      const data = snapshot.val();
+      
+      if (!data) {
+        setIsSyncing(false);
+        setHasNewCodes(false);
+        return;
+      }
+
+      const localMap = new Map(history.map(item => [item.cdkey.toUpperCase(), item]));
+
+      Object.entries(data).forEach(([safeKey, val]) => {
+        const value = val as number;
+        const ts = Math.floor(value / 10);
+        const statusDigit = value % 10;
+        const cdkey = unescapeFirebaseKey(safeKey).toUpperCase();
+
+        // Ưu tiên Success (0) hơn Limit (1) nếu trùng
+        if (!localMap.has(cdkey) || (statusDigit === 0 && localMap.get(cdkey)?.status !== 'success')) {
+          localMap.set(cdkey, {
+            id: `v-${safeKey}`,
+            cdkey,
+            status: statusDigit === 0 ? 'success' : 'failure',
+            message: statusDigit === 0 ? 'Thành công' : 'Đầy giới hạn (400067)',
+            timestamp: ts * 1000
+          });
+        }
+      });
+
+      saveToLocal(Array.from(localMap.values()));
+      
+    } catch (e) {
+      console.error("Sync error", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleRedeem = async () => {
     if (!inputValue.trim()) return;
     const cdkey = inputValue.trim().toUpperCase();
     const safeKey = escapeFirebaseKey(cdkey);
     const nowTs = Math.floor(Date.now() / 1000);
 
-    // Ghi tạm vào nhánh success (giả lập)
-    try {
-      await set(ref(db, `codes/s/${safeKey}`), nowTs);
+    if (history.some(h => h.cdkey === cdkey)) {
+      alert("Mã này đã có trong lịch sử!");
       setInputValue("");
-    } catch (error) {
-      console.error("Redeem failed", error);
+      return;
+    }
+
+    // Giả lập API: 0: Success, 1: Limit (400067), 2: Rác (Skip)
+    const rand = Math.random();
+    const mockStatus = rand > 0.8 ? 0 : (rand > 0.5 ? 1 : 2);
+    
+    if (mockStatus === 2) {
+      alert("Mã không hợp lệ hoặc đã hết hạn (Rác - Không lưu Server)");
+      setInputValue("");
+      return;
+    }
+
+    const newItem: RedeemHistory = {
+      id: `local-${safeKey}-${nowTs}`,
+      cdkey,
+      status: mockStatus === 0 ? 'success' : 'failure',
+      message: mockStatus === 0 ? 'Thành công' : 'Đầy giới hạn (400067)',
+      timestamp: nowTs * 1000
+    };
+
+    const newHistory = [newItem, ...history];
+
+    try {
+      // Đẩy DUY NHẤT 1 NODE bằng update (O(1) Bandwidth)
+      const updates: any = {};
+      updates[`c/${safeKey}`] = nowTs * 10 + mockStatus;
+      await update(ref(db), updates);
+      
+      saveToLocal(newHistory);
+      setInputValue("");
+    } catch (e) {
+      console.error("Push failed", e);
+      saveToLocal(newHistory); // Save local anyway
+      setInputValue("");
     }
   };
 
+  const needsSync = hasNewCodes;
 
   return (
     <div className="min-h-screen flex flex-col items-center p-6 md:p-12 overflow-x-hidden">
@@ -187,7 +283,7 @@ const App = () => {
               <p className="text-slate-400 text-sm">Nhận ngay phần quà từ Delta Force Garena</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 p-2 bg-white/5 rounded-2xl border border-white/10 focus-within:border-blue-400/30 transition-colors">
+            <div className={`flex flex-col sm:flex-row gap-3 p-2 bg-white/5 rounded-2xl border transition-colors ${needsSync ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'}`}>
               <input 
                 type="text" 
                 value={inputValue}
@@ -195,6 +291,23 @@ const App = () => {
                 placeholder="Nhập CDKey tại đây..."
                 className="flex-1 bg-transparent px-4 py-3 outline-none font-mono text-lg text-white placeholder:text-slate-500 placeholder:font-sans"
               />
+              
+              <AnimatePresence>
+                {needsSync && (
+                  <motion.button
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    className="btn-nordic-glass bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/30 text-orange-400 font-bold"
+                  >
+                    <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+                    <span>{isSyncing ? "Đang kéo" : "Đồng bộ Server"}</span>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
               <button 
                 onClick={handleRedeem}
                 className="btn-nordic-primary"
@@ -203,6 +316,16 @@ const App = () => {
                 <span>Xác nhận</span>
               </button>
             </div>
+            
+            {needsSync && (
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-orange-400 text-xs text-left px-2"
+              >
+                ✨ Cộng đồng vừa cập nhật mã mới! Ấn nút Đồng bộ để xem ngay.
+              </motion.p>
+            )}
           </motion.div>
         </section>
 
@@ -211,7 +334,7 @@ const App = () => {
           <div className="flex items-center justify-between px-4">
             <h3 className="font-bold text-lg flex items-center gap-2 text-white">
               <Database size={18} className="text-blue-400" />
-              Lịch sử nhập mã
+              Lịch sử nhập mã (Cục bộ)
             </h3>
           </div>
 
@@ -253,7 +376,7 @@ const App = () => {
                         <td colSpan={3} className="px-6 py-16 text-center">
                           <div className="flex flex-col items-center gap-4 text-slate-500">
                              <Cloud size={48} strokeWidth={1} className="opacity-30" />
-                             <p className="text-sm">Chưa có dữ liệu lịch sử</p>
+                             <p className="text-sm">Chưa có dữ liệu lịch sử cục bộ</p>
                           </div>
                         </td>
                       </tr>
@@ -269,7 +392,7 @@ const App = () => {
       {/* Footer Branding */}
       <footer className="mt-auto py-12 text-center space-y-2 opacity-30">
         <p className="text-xs font-bold tracking-widest uppercase text-white">Delta Force Auto-Redeem</p>
-        <p className="text-[10px] text-slate-400">© 2026 Nordic Arctic Edition</p>
+        <p className="text-[10px] text-slate-400">© 2026 Nordic Arctic Edition | Hybrid v4.0</p>
       </footer>
     </div>
   );
