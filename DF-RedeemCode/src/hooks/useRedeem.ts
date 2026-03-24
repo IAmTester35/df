@@ -22,7 +22,8 @@ import {
 import { 
   getParams, 
   unescapeFirebaseKey, 
-  escapeFirebaseKey 
+  escapeFirebaseKey,
+  parseInputCodes
 } from "../lib/utils";
 import { migrateStorage } from "../lib/storage";
 
@@ -245,11 +246,7 @@ export const useRedeem = () => {
   const handleRedeem = useCallback(async () => {
     if (!inputValue.trim()) return;
 
-    const rawCodes = inputValue.split(/\r?\n/)
-      .map(line => line.replace(/["\u200b\u200c\u200d\uFEFF]/g, '').trim())
-      .filter(code => code && code.length > 0);
-
-    const uniqueCodes = Array.from(new Set(rawCodes));
+    const uniqueCodes = parseInputCodes(inputValue);
     const codesToRun = uniqueCodes.filter(c => !history.some(h => h.cdkey === c));
 
     if (codesToRun.length === 0) {

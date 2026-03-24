@@ -26,3 +26,24 @@ export const escapeFirebaseKey = (key: string) => {
     .replace(/\[/g, '%5B')
     .replace(/\]/g, '%5D');
 };
+
+export const parseInputCodes = (input: string) => {
+    return Array.from(new Set(
+        input.split(/\r?\n/)
+        .map(line => line.replace(/["\u200b\u200c\u200d\uFEFF]/g, '').trim())
+        .filter(code => code && code.length > 0)
+    ));
+};
+
+export const processSyncData = (data: Record<string, any>, localKeys: Set<string>) => {
+    const entries = Object.entries(data);
+    return entries.map(([safeKey, val]) => {
+        const value = Number(val);
+        return {
+            safeKey,
+            cdkey: unescapeFirebaseKey(safeKey),
+            ts: Math.floor(value / 10),
+            statusDigit: value % 10
+        };
+    }).filter(item => item.statusDigit === 0 && !localKeys.has(item.cdkey));
+};
