@@ -191,45 +191,72 @@ export const useRedeem = () => {
       const newHistoryEntries: RedeemHistory[] = [...currentHistory];
       const config = getParams(masterUrl);
 
+      let maxTsInBatch = userMeta.lastSync;
+
       for (const [safeKey, val] of entries) {
         const value = val as number;
         const ts = Math.floor(value / 10);
         const statusDigit = value % 10;
         const cdkey = unescapeFirebaseKey(safeKey);
 
-        if (statusDigit === 0 && !localKeys.has(cdkey)) {
-          if (config.openid) {
-            try {
-              const workerUrl = import.meta.env.VITE_WORKER_URL;
-              const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-              await fetch(targetUrl, {
-                method: "POST",
-                headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-                body: JSON.stringify({ 
-                  masterUrl, 
-                  cdkey, 
-                  lang_type: config.lang_type, 
-                  role_info: { game_id: config.game_id } 
-                })
-              });
-            } catch (err) {
-              console.warn(`Auto-redeem failed for ${cdkey}`, err);
-            }
-            await new Promise(r => setTimeout(r, 300));
-          }
+        if (ts > maxTsInBatch) maxTsInBatch = ts;
 
-          newHistoryEntries.push({
-            id: `v-${safeKey}`,
-            cdkey,
-            status: 'success',
-            message: 'Thành công (Đồng bộ)',
-            timestamp: ts * 1000
-          });
-          localKeys.add(cdkey);
-          addedCount++;
+        if (!localKeys.has(cdkey)) {
+          if (statusDigit === 0) {
+            // Success (Đồng bộ)
+            if (config.openid) {
+              try {
+                const workerUrl = import.meta.env.VITE_WORKER_URL;
+                const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+                await fetch(targetUrl, {
+                  method: "POST",
+                  headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
+                  body: JSON.stringify({ 
+                    masterUrl, 
+                    cdkey, 
+                    lang_type: config.lang_type, 
+                    role_info: { game_id: config.game_id } 
+                  })
+                });
+              } catch (err) {
+                console.warn(`Auto-redeem failed for ${cdkey}`, err);
+              }
+              await new Promise(r => setTimeout(r, 300));
+            }
+
+            newHistoryEntries.push({
+              id: `v-${safeKey}`,
+              cdkey,
+              status: 'success',
+              message: 'Thành công (Đồng bộ)',
+              timestamp: ts * 1000
+            });
+            localKeys.add(cdkey);
+            addedCount++;
+          } else if (statusDigit === 1) {
+            // Limit 400067 (Đồng bộ)
+            newHistoryEntries.push({
+              id: `v-${safeKey}`,
+              cdkey,
+              status: 'failure',
+              message: 'Đã đạt giới hạn (Đồng bộ)',
+              timestamp: ts * 1000
+            });
+            localKeys.add(cdkey);
+            addedCount++;
+          }
         }
       }
       
+      // Update lastSync to the latest timestamp processed in the batch
+      if (maxTsInBatch > userMeta.lastSync) {
+        localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTsInBatch.toString());
+        setUserMeta(prev => ({ ...prev, lastSync: maxTsInBatch }));
+        if (user && !user.isAnonymous) {
+          update(ref(db, `u/${user.uid}`), { s: maxTsInBatch });
+        }
+      }
+
       saveToLocal(newHistoryEntries);
       Swal.fire({
         icon: 'success',
