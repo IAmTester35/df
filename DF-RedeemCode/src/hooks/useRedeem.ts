@@ -278,6 +278,7 @@ export const useRedeem = () => {
     try {
       setIsSyncing(true);
       let currentHistory = [...history];
+      const summary: { cdkey: string, msg: string, status: string }[] = [];
 
       for (let i = 0; i < codesToRun.length; i++) {
         const cdkey = codesToRun[i];
@@ -298,24 +299,31 @@ export const useRedeem = () => {
             })
           });
 
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const result = await response.json();
+          // Allow reading JSON even if response is not ok (for 4xx mappings from proxy)
+          const result = await response.json().catch(() => ({ 
+            code: response.status === 200 ? 0 : -1, 
+            msg: `Proxy/HTTP ${response.status} (Internal Error)` 
+          }));
+
           const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
+          const displayMsg = result.msg || result.message || (statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`);
 
-          if (statusDigit !== 2) {
-            const newItem: RedeemHistory = {
-              id: `local-${safeKey}-${nowTs}`,
-              cdkey,
-              status: statusDigit === 0 ? 'success' : 'failure',
-              message: statusDigit === 0 ? 'Thành công' : `Đầy giới hạn (${result.code})`,
-              timestamp: nowTs * 1000
-            };
+          const newItem: RedeemHistory = {
+            id: `local-${safeKey}-${nowTs}`,
+            cdkey,
+            status: statusDigit === 0 ? 'success' : 'failure',
+            message: displayMsg,
+            timestamp: nowTs * 1000
+          };
 
-            currentHistory = [newItem, ...currentHistory];
-            setHistory([...currentHistory].sort((a, b) => b.timestamp - a.timestamp));
-          }
-        } catch (err) {
+          currentHistory = [newItem, ...currentHistory];
+          setHistory([...currentHistory].sort((a, b) => b.timestamp - a.timestamp));
+          
+          summary.push({ cdkey, msg: displayMsg, status: newItem.status });
+
+        } catch (err: any) {
           console.error(`Error with code ${cdkey}:`, err);
+          summary.push({ cdkey, msg: err.message || "Network Error", status: 'failure' });
         }
 
         if (i < codesToRun.length - 1) {
@@ -325,11 +333,30 @@ export const useRedeem = () => {
 
       saveToLocal(currentHistory);
       setInputValue("");
-      Swal.fire({
-        icon: 'success',
-        title: 'Hoàn tất',
-        text: `Đã xử lý xong ${codesToRun.length} mã!`,
-      });
+
+      const failures = summary.filter(s => s.status === 'failure');
+      if (failures.length > 0) {
+        let errorHtml = '<ul style="text-align: left; max-height: 200px; overflow-y: auto; font-size: 0.8em; margin: 0; padding-left: 20px;">';
+        failures.forEach(f => {
+          errorHtml += `<li><strong>${f.cdkey}</strong>: <span style="color: #ef4444">${f.msg}</span></li>`;
+        });
+        errorHtml += '</ul>';
+
+        Swal.fire({
+          icon: 'warning',
+          title: 'Kết quả nạp mã',
+          html: `<div style="margin-bottom: 10px;">Đã xử lý xong ${summary.length} mã, phát hiện <strong>${failures.length} lỗi</strong>:</div>${errorHtml}`,
+          confirmButtonText: 'Đã hiểu'
+        });
+      } else {
+        Swal.fire({
+          icon: 'success',
+          title: 'Thành công',
+          text: `Đã nạp thành công ${summary.length} mã!`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
     } catch (e: any) {
       console.error("Batch redeem failed", e);
       Swal.fire({

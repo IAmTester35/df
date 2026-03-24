@@ -12,6 +12,18 @@ const FIREBASE_DB_URL = "https://delta-force-reedeem-code-default-rtdb.asia-sout
 const props = PropertiesService.getScriptProperties();
 const FIREBASE_SECRET = props.getProperty('FIREBASE_SECRET'); 
 
+function doGet(e) {
+  try {
+    const { cdkey, status, timestamp } = e.parameter;
+    
+    if (!cdkey || status === undefined) return response("Missing Data", 400);
+
+    return processData(cdkey, parseInt(status), parseInt(timestamp));
+  } catch (error) {
+    return response(error.toString(), 500);
+  }
+}
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
@@ -19,16 +31,16 @@ function doPost(e) {
 
     if (!cdkey || status === undefined) return response("Missing Data", 400);
 
-    // 1. Logic to escape Firebase Key (Dùng unescape nếu cần, nhưng thường safeKey là escape rồi)
-    const safeKey = escapeFirebaseKey(cdkey);
-    
-    // 2. Data V5.2 Logic (Timestamp * 10 + Status)
-    // Value = (Unix Timestamp) * 10 + (StatusDigit)
-    // StatusDigit: 0 = Success, 1 = Limit (400067)
-    const value = timestamp * 10 + status;
+    return processData(cdkey, status, timestamp);
+  } catch (error) {
+    return response(error.toString(), 500);
+  }
+}
 
-    // 3. Persist to Firebase RTDB Rest API
-    // Dùng tham số auth= để ghi đè Rule .write: false ở Client
+function processData(cdkey, status, timestamp) {
+  try {
+    const safeKey = escapeFirebaseKey(cdkey);
+    const value = timestamp * 10 + status;
     const url = `${FIREBASE_DB_URL}/c/${safeKey}.json?auth=${FIREBASE_SECRET}`;
     
     UrlFetchApp.fetch(url, {
@@ -38,9 +50,8 @@ function doPost(e) {
     });
 
     return response("Success", 200);
-
   } catch (error) {
-    return response(error.toString(), 500);
+    return response(error.toString(), 400);
   }
 }
 

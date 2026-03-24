@@ -50,42 +50,56 @@ export default {
         body: JSON.stringify({ ...restBody, cdkey }), // Forward body clean
       });
 
-      const result = await garenaResponse.json();
+      // 3. Clone or Buffer for double-reading (one for client, one for GAS logic)
+      const responseBody = await garenaResponse.arrayBuffer();
+      const bodyText = new TextDecoder().decode(responseBody);
 
-      // 3. Status Determination (V5.2 Logic)
-      // code 0: Success, code 400067: Limit reached
-      let statusDigit = -1;
-      if (result.code === 0) {
-        statusDigit = 0;
-      } else if (String(result.code) === "400067") {
-        statusDigit = 1;
+      // 4. Background Sync to Google Apps Script (GAS)
+      try {
+        const result = JSON.parse(bodyText);
+        let statusDigit = -1;
+        if (result.code === 0) {
+          statusDigit = 0;
+        } else if (String(result.code) === "400067") {
+          statusDigit = 1;
+        }
+
+        const GAS_URL = env.GAS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycbzKx5iFDII-yjbhTsCxFrWRUFff20aJJjBilVQn-B7n6c8RuIUWDo54_yY3VklYQQCV/exec";
+        
+        if (statusDigit !== -1) {
+          const params = new URLSearchParams({
+            cdkey: cdkey,
+            status: String(statusDigit),
+            timestamp: String(Math.floor(Date.now() / 1000))
+          });
+          const finalGasUrl = `${GAS_URL}${GAS_URL.includes("?") ? "&" : "?"}${params.toString()}`;
+
+          ctx.waitUntil(
+            fetch(finalGasUrl)
+              .catch(e => console.error("GAS Webhook Error:", e))
+          );
+        }
+      } catch (e) {
+        // Just log the error, don't break the proxy flow
+        console.warn("GAS logic fallback or non-JSON response:", e.message);
       }
 
-      // 4. Async Hook to Google Apps Script (GAS)
-      // Sử dụng Webhook URL đã cung cấp
-      const GAS_URL = env.GAS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycbzKx5iFDII-yjbhTsCxFrWRUFff20aJJjBilVQn-B7n6c8RuIUWDo54_yY3VklYQQCV/exec";
-      
-      if (statusDigit !== -1) {
-        ctx.waitUntil(
-          fetch(GAS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              cdkey: cdkey,
-              status: statusDigit,
-              raw_code: result.code,
-              message: result.message || "",
-              timestamp: Math.floor(Date.now() / 1000)
-            }),
-          }).catch(e => console.error("GAS Webhook Error:", e))
-        );
-      }
+      // 5. Determine HTTP Status based on Garena Code
+      let finalStatus = garenaResponse.status;
+      try {
+        const result = JSON.parse(bodyText);
+        // If Garena returned 200 but code is not 0, force a 400 to show as error in network tab
+        if (result.code !== 0 && finalStatus === 200) {
+          finalStatus = 400;
+        }
+      } catch (e) {}
 
-      // 5. Return Garena response to Frontend
-      return new Response(JSON.stringify(result), {
+      // 6. Return response to Frontend
+      return new Response(responseBody, {
+        status: finalStatus,
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
+          "Content-Type": garenaResponse.headers.get("Content-Type") || "application/json",
         },
       });
 
