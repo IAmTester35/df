@@ -24,7 +24,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           exit={{ opacity: 0, height: 0 }} 
           className="flex justify-center overflow-hidden"
         >
-          <div className="nordic-card w-full max-w-2xl border-blue-500/20! bg-slate-900/60! space-y-4">
+          <div className="nordic-card w-full max-w-2xl space-y-4">
             <div className="flex items-center gap-2 text-blue-400">
               <Link size={18} />
               <h3 className="font-bold text-white">Cấu hình Master URL</h3>

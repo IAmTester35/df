@@ -37,18 +37,18 @@ body {
 }
 
 :root {
-  /* Nordic Arctic Blue Palette (Darker variant) */
-  --color-primary: #3B82F6; /* Brighter blue for primary on dark */
+  /* Nordic Arctic Blue Palette (Premium Dark Variant) */
+  --color-primary: #3B82F6;
   --color-secondary: #7DD3FC;
-  --color-accent: #0EA5E9;
-  --color-background: #0F172A; /* Midnight Navy */
-  --color-text: #F8FAFC; /* Near white */
-  --color-glass-bg: rgba(30, 41, 59, 0.6); /* Translucent Navy */
-  --color-glass-border: rgba(255, 255, 255, 0.15); /* Subtle border */
+  --color-accent: #60A5FA;
+  --color-background: #0B0F1A; /* Deeper Dark */
+  --color-text: #F8FAFC;
   
-  /* Glassmorphism Variables */
-  --glass-blur: 16px;
-  --glass-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.4);
+  /* Refined Glassmorphism */
+  --color-glass-bg: rgba(255, 255, 255, 0.05); /* Very light glass */
+  --color-glass-border: rgba(255, 255, 255, 0.12);
+  --glass-blur: 24px;
+  --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   --glass-border: 1px solid var(--color-glass-border);
   
   /* Spacing */
@@ -56,7 +56,6 @@ body {
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
-  --space-xl: 48px;
 }
 
 /* Removal of body::before gradient as it's now in body bg */

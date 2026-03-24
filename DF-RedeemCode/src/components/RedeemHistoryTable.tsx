@@ -16,7 +16,7 @@ const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history }) => {
           Lịch sử nạp mã (Cục bộ)
         </h3>
       </div>
-      <div className="nordic-card p-0! overflow-hidden bg-slate-900/30!">
+      <div className="nordic-card p-0! overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

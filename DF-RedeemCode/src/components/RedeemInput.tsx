@@ -24,7 +24,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
-        className="nordic-card w-full max-w-2xl text-center space-y-6 bg-slate-900/40! border-blue-500/10!"
+        className="nordic-card w-full max-w-2xl text-center space-y-6"
       >
         <div className="space-y-2">
           <h2 className="text-3xl font-bold text-white">Nhập hàng loạt mã</h2>

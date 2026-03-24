@@ -202,13 +202,16 @@ export const useRedeem = () => {
         if (ts > maxTsInBatch) maxTsInBatch = ts;
 
         if (!localKeys.has(cdkey)) {
-          if (statusDigit === 0) {
-            // Success (Đồng bộ)
+          // Status 0 (Success) or 1 (Account-based Limit) both mean the code is worth trying
+          if (statusDigit === 0 || statusDigit === 1) {
+            let actualMsg = statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)';
+            let actualStatus: 'success' | 'failure' = 'success';
+
             if (config.openid) {
               try {
                 const workerUrl = import.meta.env.VITE_WORKER_URL;
                 const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-                await fetch(targetUrl, {
+                const response = await fetch(targetUrl, {
                   method: "POST",
                   headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
                   body: JSON.stringify({ 
@@ -218,6 +221,18 @@ export const useRedeem = () => {
                     role_info: { game_id: config.game_id } 
                   })
                 });
+                
+                // Cố gắng đọc kết quả thực tế từ Worker
+                const result = await response.json().catch(() => null);
+                if (result) {
+                  if (result.code !== 0) {
+                    actualStatus = 'failure';
+                    actualMsg = result.msg || result.message || `Lỗi ${result.code}`;
+                  } else {
+                    actualStatus = 'success';
+                    actualMsg = 'Thành công';
+                  }
+                }
               } catch (err) {
                 console.warn(`Auto-redeem failed for ${cdkey}`, err);
               }
@@ -227,19 +242,8 @@ export const useRedeem = () => {
             newHistoryEntries.push({
               id: `v-${safeKey}`,
               cdkey,
-              status: 'success',
-              message: 'Thành công (Đồng bộ)',
-              timestamp: ts * 1000
-            });
-            localKeys.add(cdkey);
-            addedCount++;
-          } else if (statusDigit === 1) {
-            // Limit 400067 (Đồng bộ)
-            newHistoryEntries.push({
-              id: `v-${safeKey}`,
-              cdkey,
-              status: 'failure',
-              message: 'Đã đạt giới hạn (Đồng bộ)',
+              status: actualStatus,
+              message: actualMsg,
               timestamp: ts * 1000
             });
             localKeys.add(cdkey);
