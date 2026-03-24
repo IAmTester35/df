@@ -24,6 +24,9 @@ import {
   unescapeFirebaseKey, 
   escapeFirebaseKey 
 } from "../lib/utils";
+import { migrateStorage } from "../lib/storage";
+
+// Remove top-level call to migrateStorage, move it into the hook
 
 export interface UserMeta {
   lastSync: number;
@@ -49,6 +52,9 @@ export const useRedeem = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
+    // Migrate on mount
+    migrateStorage();
+
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) setHistory(JSON.parse(stored));
