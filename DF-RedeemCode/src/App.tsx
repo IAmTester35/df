@@ -10,7 +10,9 @@ import {
   XCircle, 
   Database,
   Cloud,
-  RefreshCw
+  RefreshCw,
+  Settings,
+  Link
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -24,6 +26,17 @@ import {
   startAfter
 } from "firebase/database";
 
+const getParams = (urlStr: string) => {
+  try {
+    const url = new URL(urlStr);
+    return Object.fromEntries(url.searchParams.entries());
+  } catch(e) {
+    return {};
+  }
+};
+
+const DEFAULT_MASTER_URL = "https://sg-act.playerinfinite.com/api/proxy/present/CdkV2/RedeemCDKey?cdkey=123&channel=10&game_id=30150&gameid=30150&openid=6762653709957283006&token=18d2111e4b3606bbca8bca0069344c385623c101&account_type=1&lang_type=vi&u=d677163a-2bdb-4b34-9dd8-ba991a44c8c0&a=10005&ts=1773217659&s=862b490ac76eef04aeaf438758a571a0";
+const LOCAL_MASTER_URL_KEY = 'df_master_url_v6';
 
 interface RedeemHistory {
   id: string;
@@ -33,7 +46,6 @@ interface RedeemHistory {
   timestamp: number;
 }
 
-// Helper: Giải mã các ký tự đặc biệt từ Firebase Key
 const unescapeFirebaseKey = (key: string) => {
   return key
     .replace(/%2E/g, '.')
@@ -44,7 +56,6 @@ const unescapeFirebaseKey = (key: string) => {
     .replace(/%5D/g, ']');
 };
 
-// Helper: Mã hóa CDKey để làm Firebase Key
 const escapeFirebaseKey = (key: string) => {
   return key
     .replace(/\./g, '%2E')
@@ -67,39 +78,34 @@ const App = () => {
   const [hasNewCodes, setHasNewCodes] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const [masterUrl, setMasterUrl] = useState(DEFAULT_MASTER_URL);
+  const [showSettings, setShowSettings] = useState(false);
+
   useEffect(() => {
-    // 1. Load from Local
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        setHistory(JSON.parse(stored));
-      }
+      if (stored) setHistory(JSON.parse(stored));
+      
       const storedSync = localStorage.getItem(LOCAL_SYNC_TIME_KEY);
-      if (storedSync) {
-        setLastSyncTime(Number(storedSync));
-      }
+      if (storedSync) setLastSyncTime(Number(storedSync));
+      
+      const storedUrl = localStorage.getItem(LOCAL_MASTER_URL_KEY);
+      if (storedUrl) setMasterUrl(storedUrl);
     } catch (e) {
       console.error("Local load error", e);
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        signInAnonymously(auth);
-      }
+      if (currentUser) setUser(currentUser);
+      else signInAnonymously(auth);
     });
 
-    // 2. Listen for ANY new code (delta notification)
     const latestQuery = query(ref(db, 'c'), orderByValue(), limitToLast(1));
     const unsubscribeDb = onValue(latestQuery, (snapshot) => {
       snapshot.forEach((child) => {
         const val = child.val() as number;
         const ts = Math.floor(val / 10);
-        // Nếu có mã mới hơn mốc local sync -> Báo hiệu có code mới
-        if (ts > lastSyncTime) {
-          setHasNewCodes(true);
-        }
+        if (ts > lastSyncTime) setHasNewCodes(true);
       });
     });
 
@@ -120,10 +126,7 @@ const App = () => {
 
   const handleLogout = () => signOut(auth);
 
-  // Helper: Save to Local & Update Sync Time
-
   const saveToLocal = (newHistory: RedeemHistory[]) => {
-    // Tìm mốc timestamp lớn nhất để làm mốc sync tiếp theo
     const maxTs = Math.max(0, ...newHistory.map(h => Math.floor(h.timestamp / 1000)));
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newHistory));
     localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTs.toString());
@@ -132,17 +135,16 @@ const App = () => {
     setHasNewCodes(false);
   };
 
+  const saveMasterUrl = (url: string) => {
+    setMasterUrl(url);
+    localStorage.setItem(LOCAL_MASTER_URL_KEY, url);
+  };
+
   const handleSync = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-      // Delta Sync: Chỉ lấy những mã có value > (lastSyncTime * 10 + 9)
-      const syncQuery = query(
-        ref(db, 'c'), 
-        orderByValue(), 
-        startAfter(lastSyncTime * 10 + 9)
-      );
-      
+      const syncQuery = query(ref(db, 'c'), orderByValue(), startAfter(lastSyncTime * 10 + 9));
       const snapshot = await get(syncQuery);
       const data = snapshot.val();
       
@@ -152,15 +154,13 @@ const App = () => {
         return;
       }
 
-      const localMap = new Map(history.map(item => [item.cdkey.toUpperCase(), item]));
-
+      const localMap = new Map(history.map(item => [item.cdkey, item]));
       Object.entries(data).forEach(([safeKey, val]) => {
         const value = val as number;
         const ts = Math.floor(value / 10);
         const statusDigit = value % 10;
-        const cdkey = unescapeFirebaseKey(safeKey).toUpperCase();
+        const cdkey = unescapeFirebaseKey(safeKey);
 
-        // Ưu tiên Success (0) hơn Limit (1) nếu trùng
         if (!localMap.has(cdkey) || (statusDigit === 0 && localMap.get(cdkey)?.status !== 'success')) {
           localMap.set(cdkey, {
             id: `v-${safeKey}`,
@@ -171,9 +171,7 @@ const App = () => {
           });
         }
       });
-
       saveToLocal(Array.from(localMap.values()));
-      
     } catch (e) {
       console.error("Sync error", e);
     } finally {
@@ -183,48 +181,79 @@ const App = () => {
 
   const handleRedeem = async () => {
     if (!inputValue.trim()) return;
-    const cdkey = inputValue.trim().toUpperCase();
-    const safeKey = escapeFirebaseKey(cdkey);
-    const nowTs = Math.floor(Date.now() / 1000);
-
-    if (history.some(h => h.cdkey === cdkey)) {
-      alert("Mã này đã có trong lịch sử!");
-      setInputValue("");
-      return;
-    }
-
-    // Giả lập API: 0: Success, 1: Limit (400067), 2: Rác (Skip)
-    const rand = Math.random();
-    const mockStatus = rand > 0.8 ? 0 : (rand > 0.5 ? 1 : 2);
     
-    if (mockStatus === 2) {
-      alert("Mã không hợp lệ hoặc đã hết hạn (Rác - Không lưu Server)");
+    const rawCodes = inputValue.split(/\r?\n/)
+      .map(line => line.replace(/["\u200b\u200c\u200d\uFEFF]/g, '').trim())
+      .filter(code => code && code.length > 0);
+
+    const uniqueCodes = Array.from(new Set(rawCodes));
+    const codesToRun = uniqueCodes.filter(c => !history.some(h => h.cdkey === c));
+
+    if (codesToRun.length === 0) {
+      alert("Tất cả mã đã được nhập hoặc đã có trong lịch sử!");
       setInputValue("");
       return;
     }
 
-    const newItem: RedeemHistory = {
-      id: `local-${safeKey}-${nowTs}`,
-      cdkey,
-      status: mockStatus === 0 ? 'success' : 'failure',
-      message: mockStatus === 0 ? 'Thành công' : 'Đầy giới hạn (400067)',
-      timestamp: nowTs * 1000
-    };
-
-    const newHistory = [newItem, ...history];
+    const config = getParams(masterUrl);
+    if (!config.openid) {
+      alert("MASTER_URL không hợp lệ!");
+      return;
+    }
 
     try {
-      // Đẩy DUY NHẤT 1 NODE bằng update (O(1) Bandwidth)
-      const updates: any = {};
-      updates[`c/${safeKey}`] = nowTs * 10 + mockStatus;
-      await update(ref(db), updates);
-      
-      saveToLocal(newHistory);
+      setIsSyncing(true);
+      let currentHistory = [...history];
+
+      for (let i = 0; i < codesToRun.length; i++) {
+        const cdkey = codesToRun[i];
+        const safeKey = escapeFirebaseKey(cdkey);
+        const nowTs = Math.floor(Date.now() / 1000);
+
+        try {
+          const proxyUrl = masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+          const response = await fetch(proxyUrl, {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
+            body: JSON.stringify({ lang_type: config.lang_type, role_info: { game_id: config.game_id }, cdkey: cdkey })
+          });
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const result = await response.json();
+          const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
+          
+          if (statusDigit !== 2) {
+             const newItem: RedeemHistory = {
+              id: `local-${safeKey}-${nowTs}`,
+              cdkey,
+              status: statusDigit === 0 ? 'success' : 'failure',
+              message: statusDigit === 0 ? 'Thành công' : `Đầy giới hạn (${result.code})`,
+              timestamp: nowTs * 1000
+            };
+
+            const updates: any = {};
+            updates[`c/${safeKey}`] = nowTs * 10 + statusDigit;
+            await update(ref(db), updates);
+            
+            currentHistory = [newItem, ...currentHistory];
+            setHistory([...currentHistory].sort((a, b) => b.timestamp - a.timestamp));
+          }
+        } catch (err) {
+          console.error(`Error with code ${cdkey}:`, err);
+        }
+
+        if (i < codesToRun.length - 1) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      saveToLocal(currentHistory);
       setInputValue("");
-    } catch (e) {
-      console.error("Push failed", e);
-      saveToLocal(newHistory); // Save local anyway
-      setInputValue("");
+      alert(`Đã xử lý xong ${codesToRun.length} mã!`);
+    } catch (e: any) {
+      console.error("Batch redeem failed", e);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -232,8 +261,6 @@ const App = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-6 md:p-12 overflow-x-hidden">
-      
-      {/* Tầng 1: Navigation Bar */}
       <nav className="nav-floating glass-effect flex items-center justify-between rounded-full border-white/10!">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -243,101 +270,63 @@ const App = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-2 rounded-full transition-all ${showSettings ? 'bg-blue-500/20 text-blue-400 rotate-90!' : 'hover:bg-white/10 text-slate-400'}`}
+          >
+            <Settings size={20} />
+          </button>
+
           {user && !user.isAnonymous ? (
             <div className="flex items-center gap-3 bg-white/10 pl-1 pr-3 py-1 rounded-full border border-white/10">
               <img src={user.photoURL || ""} alt="avatar" className="w-8 h-8 rounded-full border border-white/20" />
-              <div className="flex flex-col">
-                <span className="text-sm font-bold leading-none">{user.displayName}</span>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="ml-2 p-1 hover:bg-red-500/20 rounded-full text-slate-400 hover:text-red-400 transition-colors"
-                title="Đăng xuất"
-              >
-                <LogOut size={16} />
-              </button>
+              <span className="text-sm font-bold leading-none hidden sm:block">{user.displayName}</span>
+              <button onClick={handleLogout} className="ml-2 p-1 hover:bg-red-500/20 rounded-full text-slate-400 hover:text-red-400"><LogOut size={16} /></button>
             </div>
           ) : (
-            <button 
-              onClick={handleLogin}
-              className="btn-nordic-glass py-2! px-5!"
-            >
-              <CircleUser size={18} />
-              <span>Đăng nhập</span>
-            </button>
+            <button onClick={handleLogin} className="btn-nordic-glass py-2! px-5!"><CircleUser size={18} /><span>Đăng nhập</span></button>
           )}
         </div>
       </nav>
 
       <main className="w-full max-w-[1200px] mt-24 md:mt-32 space-y-12">
-        
-        {/* Tầng 2: Hero Action Zone */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.section initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex justify-center overflow-hidden">
+              <div className="nordic-card w-full max-w-2xl border-blue-500/20! bg-slate-900/60! space-y-4">
+                <div className="flex items-center gap-2 text-blue-400"><Link size={18} /><h3 className="font-bold text-white">Cấu hình Master URL</h3></div>
+                <div className="space-y-2">
+                  <textarea value={masterUrl} onChange={(e) => saveMasterUrl(e.target.value)} className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-xs font-mono text-blue-100/70 outline-none h-24" placeholder="Dán URL RedeemCDKey tại đây..."/>
+                  <div className="flex justify-between items-center text-[10px] text-slate-500">
+                    <span>Trạng thái: {getParams(masterUrl).openid ? "✅ Hợp lệ" : "❌ URL thiếu OpenID/Token"}</span>
+                    <button onClick={() => saveMasterUrl(DEFAULT_MASTER_URL)} className="hover:text-white">Khôi phục mặc định</button>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
         <section className="flex justify-center">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="nordic-card w-full max-w-2xl text-center space-y-6 bg-slate-900/40!"
-          >
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-white">Nhập mã ưu đãi</h2>
-              <p className="text-slate-400 text-sm">Nhận ngay phần quà từ Delta Force Garena</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="nordic-card w-full max-w-2xl text-center space-y-6 bg-slate-900/40! border-blue-500/10!">
+            <div className="space-y-2"><h2 className="text-3xl font-bold text-white">Nhập hàng loạt mã</h2><p className="text-slate-400 text-sm">Mỗi dòng 1 mã CDKey. Hệ thống tự động lọc trùng và delay 1s.</p></div>
+            <div className={`flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border transition-colors ${needsSync ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'}`}>
+              <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Dán danh sách mã vào đây (Mỗi mã 1 dòng)..." className="w-full bg-transparent px-2 py-2 outline-none font-mono text-sm text-white min-h-[120px] resize-y" />
+              <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-white/5">
+                <div className="flex-1 flex items-center px-2"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{inputValue.trim() ? `${inputValue.trim().split('\n').filter(l => l.trim()).length} mã được tìm thấy` : "Sẵn sàng"}</span></div>
+                <AnimatePresence>
+                  {needsSync && (
+                    <motion.button initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} onClick={handleSync} disabled={isSyncing} className="btn-nordic-glass py-2! px-4! bg-orange-500/20 text-orange-400 border-orange-500/30"><RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} /><span className="text-xs">Đồng bộ Server</span></motion.button>
+                  )}
+                </AnimatePresence>
+                <button onClick={handleRedeem} disabled={isSyncing || !inputValue.trim()} className={`btn-nordic-primary py-2! px-6! ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}><Zap size={18} className="fill-white" /><span>{isSyncing ? "Đang xử lý..." : "Bắt đầu nhập"}</span></button>
+              </div>
             </div>
-
-            <div className={`flex flex-col sm:flex-row gap-3 p-2 bg-white/5 rounded-2xl border transition-colors ${needsSync ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'}`}>
-              <input 
-                type="text" 
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Nhập CDKey tại đây..."
-                className="flex-1 bg-transparent px-4 py-3 outline-none font-mono text-lg text-white placeholder:text-slate-500 placeholder:font-sans"
-              />
-              
-              <AnimatePresence>
-                {needsSync && (
-                  <motion.button
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.8, opacity: 0 }}
-                    onClick={handleSync}
-                    disabled={isSyncing}
-                    className="btn-nordic-glass bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/30 text-orange-400 font-bold"
-                  >
-                    <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
-                    <span>{isSyncing ? "Đang kéo" : "Đồng bộ Server"}</span>
-                  </motion.button>
-                )}
-              </AnimatePresence>
-
-              <button 
-                onClick={handleRedeem}
-                className="btn-nordic-primary"
-              >
-                <Zap size={18} className="fill-white" />
-                <span>Xác nhận</span>
-              </button>
-            </div>
-            
-            {needsSync && (
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-orange-400 text-xs text-left px-2"
-              >
-                ✨ Cộng đồng vừa cập nhật mã mới! Ấn nút Đồng bộ để xem ngay.
-              </motion.p>
-            )}
           </motion.div>
         </section>
 
-        {/* Tầng 3: Data & Utility Zone */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-4">
-            <h3 className="font-bold text-lg flex items-center gap-2 text-white">
-              <Database size={18} className="text-blue-400" />
-              Lịch sử nhập mã (Cục bộ)
-            </h3>
-          </div>
-
+          <div className="flex items-center justify-between px-4"><h3 className="font-bold text-lg flex items-center gap-2 text-white"><Database size={18} className="text-blue-400" />Lịch sử nhập mã (Cục bộ)</h3></div>
           <div className="nordic-card p-0! overflow-hidden bg-slate-900/30!">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -351,35 +340,13 @@ const App = () => {
                 <tbody className="divide-y divide-white/5">
                   <AnimatePresence>
                     {history.length > 0 ? history.map((item) => (
-                      <motion.tr 
-                        key={item.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="table-row-hover transition-colors"
-                      >
+                      <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="table-row-hover transition-colors">
                         <td className="px-6 py-4 font-mono font-medium text-blue-100">{item.cdkey}</td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                            item.status === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                          }`}>
-                            {item.status === 'success' ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                            {item.message}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-slate-500 italic">
-                          {new Date(item.timestamp).toLocaleString()}
-                        </td>
+                        <td className="px-6 py-4"><span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${item.status === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{item.status === 'success' ? <CheckCircle2 size={12} /> : <XCircle size={12} />}{item.message}</span></td>
+                        <td className="px-6 py-4 text-xs text-slate-500 italic">{new Date(item.timestamp).toLocaleString()}</td>
                       </motion.tr>
                     )) : (
-                      <tr>
-                        <td colSpan={3} className="px-6 py-16 text-center">
-                          <div className="flex flex-col items-center gap-4 text-slate-500">
-                             <Cloud size={48} strokeWidth={1} className="opacity-30" />
-                             <p className="text-sm">Chưa có dữ liệu lịch sử cục bộ</p>
-                          </div>
-                        </td>
-                      </tr>
+                      <tr><td colSpan={3} className="px-6 py-16 text-center"><div className="flex flex-col items-center gap-4 text-slate-500"><Cloud size={48} strokeWidth={1} className="opacity-30" /><p className="text-sm">Chưa có dữ liệu lịch sử cục bộ</p></div></td></tr>
                     )}
                   </AnimatePresence>
                 </tbody>
@@ -388,11 +355,9 @@ const App = () => {
           </div>
         </section>
       </main>
-
-      {/* Footer Branding */}
       <footer className="mt-auto py-12 text-center space-y-2 opacity-30">
         <p className="text-xs font-bold tracking-widest uppercase text-white">Delta Force Auto-Redeem</p>
-        <p className="text-[10px] text-slate-400">© 2026 Nordic Arctic Edition | Hybrid v4.0</p>
+        <p className="text-[10px] text-slate-400">© 2026 Nordic Arctic Edition | Centralized GAS Hybrid</p>
       </footer>
     </div>
   );

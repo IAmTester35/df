@@ -7,7 +7,7 @@ const path = require('path');
 
 const successFile = path.resolve(__dirname, 'success.json');
 const failureFile = path.resolve(__dirname, 'failure.json');
-const envFile = path.resolve(__dirname, 'DF-RedeemCode/.env.local');
+const envFile = path.resolve(__dirname, './DF-RedeemCode/.env.local');
 
 function escapeFirebaseKey(key) {
     if (!key) return '';
@@ -22,9 +22,15 @@ const firebaseConfig = {};
 envContent.split('\n').forEach(line => {
     const [k, v] = line.split('=');
     if (k && v) {
-        const key = k.trim().replace('VITE_FIREBASE_', '').toLowerCase()
+        const rawKey = k.trim().replace('VITE_FIREBASE_', '').toLowerCase()
             .replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-        firebaseConfig[key === 'apiKey' ? 'apiKey' : key] = v.trim();
+        
+        // Fix naming convention for Firebase SDK
+        let finalKey = rawKey;
+        if (rawKey === 'databaseUrl') finalKey = 'databaseURL';
+        if (rawKey === 'authDomain') finalKey = 'authDomain';
+        
+        firebaseConfig[finalKey] = v.trim();
     }
 });
 
@@ -42,7 +48,7 @@ function processV52Data() {
     if (fs.existsSync(successFile)) {
         const data = JSON.parse(fs.readFileSync(successFile, 'utf8') || "[]");
         data.forEach(item => {
-            const safeKey = escapeFirebaseKey(item.cdkey.trim().toUpperCase());
+            const safeKey = escapeFirebaseKey(item.cdkey.trim());
             codes[safeKey] = nowTs * 10 + 0;
         });
     }
@@ -51,7 +57,7 @@ function processV52Data() {
     if (fs.existsSync(failureFile)) {
         const data = JSON.parse(fs.readFileSync(failureFile, 'utf8') || "[]");
         data.forEach(item => {
-            const safeKey = escapeFirebaseKey(item.cdkey.trim().toUpperCase());
+            const safeKey = escapeFirebaseKey(item.cdkey.trim());
             if (Number(item.response_code) === 400067 && !codes[safeKey]) {
                 codes[safeKey] = nowTs * 10 + 1;
             }
@@ -76,8 +82,9 @@ async function sync() {
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        
-        console.log(`🔗 Syncing ${count} keys to 'c' via Multi-path Update...`);
+
+        console.log(`🔗 Target RTDB: ${firebaseConfig.databaseURL}`);
+        console.log(`📡 Syncing ${count} keys to 'c' via Multi-path Update...`);
         // Sử dụng update để không xóa các node metadata khác (nếu có)
         await update(ref(db), { 'c': data });
         console.log('✅ Done!');

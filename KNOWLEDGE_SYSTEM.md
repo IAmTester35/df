@@ -4,20 +4,20 @@ Tài liệu này là nguồn sự thật duy nhất (Single Source of Truth) v�
 
 ---
 
-## 🌉 1. Kiến trúc hệ thống (System Architecture)
-Dự án tuân theo mô hình **Serverless Edge Computing** để đạt hiệu suất cao và độ trễ thấp.
+## 🌉 1. Kiến trúc hệ thống Hybrid (V6.0 - Centralized GAS)
+Dự án tuân theo mô hình **Edge-to-Serverless** đa lớp để đảm bảo tính toàn vẹn của dữ liệu và vượt rào cản API.
 
--   **Frontend**: ReactJS SPA được xây dựng bằng Vite, hỗ trợ Mobile-first.
--   **Edge Layer**: **Cloudflare Workers** đóng vai trò Gateway proxy để vượt rào cản CORS và thực hiện xác thực nguyên tử (Atomic Verification).
--   **Identity**: **Firebase Auth** quản lý định danh người dùng (hỗ trợ Anonymous và Google Login).
--   **Global State/Sync**: **Firebase Real-time Database (RTDB)** đóng vai trò là Sổ cái toàn cầu (Global Registry) cho các mã đã xác minh, sử dụng WebSocket để đồng bộ hóa thời gian thực tới tất cả máy khách.
+-   **Frontend**: ReactJS SPA (Vite) - Chỉ đọc (Read-only) từ RTDB và gửi yêu cầu xác thực qua Proxy.
+-   **Edge Layer (Cloudflare Workers)**: Gateway Proxy xử lý CORS, gọi API Game Garena và lọc các lỗi thô.
+-   **Validator Layer (Google Apps Script - GAS)**: **Nguồn sự thật duy nhất (Single Point of Write)**. GAS kiểm tra lại dữ liệu và là nơi duy nhất có quyền ghi vào RTDB.
+-   **Persistence**: **Firebase RTDB** đóng vai trò Global Registry cho Real-time Sync.
 
 ### Luồng dữ liệu:
-1.  **Auth**: Người dùng đăng nhập ẩn danh hoặc qua Google.
-2.  **Observe**: Client đăng ký nhận luồng dữ liệu mã từ Firebase.
-3.  **Submit**: Client gửi mã (local hoặc mới) tới Edge Gateway.
-4.  **Verify**: Edge Gateway gọi API Game (Garena) Server-to-Server.
-5.  **Broadcast**: Mã hợp lệ được ghi vào Firebase, kích hoạt thông báo tới toàn bộ người dùng đang active.
+1.  **Submit**: Client gửi CDKey tới Cloudflare Workers Gateway.
+2.  **Verify (Edge)**: CF Worker gọi API Game Garena để kiểm tra mã.
+3.  **Callback**: Nếu API Game trả về thành công (hoặc lỗi 400067), CF Worker gọi Webhook tới **Google Apps Script**.
+4.  **Validate & Persist**: GAS kiểm tra logic, định dạng key và thực hiện lệnh ghi (`PATCH/PUT`) lên Firebase RTDB REST API.
+5.  **Broadcast**: RTDB kích hoạt thông báo WebSocket tới toàn bộ Client đang active.
 
 ---
 
@@ -44,7 +44,7 @@ Toàn bộ mã nằm trong node `c/`.
 
 ### Cơ chế Đồng bộ:
 - **Delta Sync**: Client chỉ tải phần chênh lệch dựa trên `lastSyncTime` sử dụng `query(ref(db, 'c'), orderByValue(), startAfter(lastSync * 10 + 9))`.
-- **O(1) Write**: Sử dụng `update()` đích danh vào node con, không dùng Transaction.
+- **O(1) GAS-Write-Only**: Toàn bộ thao tác ghi vào node con được thực hiện qua GAS, Client không có quyền ghi trực tiếp vào RTDB (Security Rules: Write False).
 
 ---
 
@@ -75,4 +75,4 @@ Công cụ thử lại các mã tiềm năng dựa trên lịch sử.
 -   [code.txt](file:///Users/nammaithanh/Desktop/Samset/githubbb/df/code.txt): Nguồn nhập mã CDKey thô.
 
 ---
-*Cập nhật: 24/03/2026 - Tích hợp phân tích dự án và hệ thống kiến trúc V4.0.*
+*Cập nhật: 24/03/2026 - Tích hợp kiến trúc V6.0 Centralized GAS Validator.*
