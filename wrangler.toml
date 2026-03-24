@@ -1,0 +1,6 @@
+name = "df-redeem-proxy"
+main = "cloudflare_worker.js"
+compatibility_date = "2026-03-24"
+
+[vars]
+GAS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzKx5iFDII-yjbhTsCxFrWRUFff20aJJjBilVQn-B7n6c8RuIUWDo54_yY3VklYQQCV/exec"

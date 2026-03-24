@@ -200,11 +200,17 @@ export const useRedeem = () => {
         if (statusDigit === 0 && !localKeys.has(cdkey)) {
           if (config.openid) {
             try {
-              const proxyUrl = masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-              await fetch(proxyUrl, {
+              const workerUrl = import.meta.env.VITE_WORKER_URL;
+              const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+              await fetch(targetUrl, {
                 method: "POST",
                 headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-                body: JSON.stringify({ lang_type: config.lang_type, role_info: { game_id: config.game_id }, cdkey: cdkey })
+                body: JSON.stringify({ 
+                  masterUrl, 
+                  cdkey, 
+                  lang_type: config.lang_type, 
+                  role_info: { game_id: config.game_id } 
+                })
               });
             } catch (err) {
               console.warn(`Auto-redeem failed for ${cdkey}`, err);
@@ -279,11 +285,17 @@ export const useRedeem = () => {
         const nowTs = Math.floor(Date.now() / 1000);
 
         try {
-          const proxyUrl = masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-          const response = await fetch(proxyUrl, {
+          const workerUrl = import.meta.env.VITE_WORKER_URL;
+          const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+          const response = await fetch(targetUrl, {
             method: "POST",
             headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-            body: JSON.stringify({ lang_type: config.lang_type, role_info: { game_id: config.game_id }, cdkey: cdkey })
+            body: JSON.stringify({ 
+              masterUrl, 
+              cdkey, 
+              lang_type: config.lang_type, 
+              role_info: { game_id: config.game_id } 
+            })
           });
 
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -298,10 +310,6 @@ export const useRedeem = () => {
               message: statusDigit === 0 ? 'Thành công' : `Đầy giới hạn (${result.code})`,
               timestamp: nowTs * 1000
             };
-
-            const updates: any = {};
-            updates[`c/${safeKey}`] = nowTs * 10 + statusDigit;
-            await update(ref(db), updates);
 
             currentHistory = [newItem, ...currentHistory];
             setHistory([...currentHistory].sort((a, b) => b.timestamp - a.timestamp));
