@@ -9,7 +9,7 @@ const { redeemCode, CHUNK_SIZE, DELAY_BETWEEN_CHUNKS } = require('./config');
 async function startBruteForce() {
     const files = ['./success.json', './failure.json'];
     let allCodes = new Set();
-    const excludeCodes = [51, 400070, 400054, 400068]; // Remove code from error [system error, The end time has passed, The current cdk does not match, The current cdkey has reached the redemption limit]
+    const targetResponseCode = 400067; // The current user has reached the redemption limit of cdkey group
 
     // 1. Thu thập tất cả code từ các file JSON
     files.forEach(file => {
@@ -18,11 +18,11 @@ async function startBruteForce() {
                 const data = JSON.parse(fs.readFileSync(file, 'utf8') || "[]");
                 if (Array.isArray(data)) {
                     data.forEach(item => {
-                        const code = (item.cdkey || item.code || "").toString().replace(/["\u200b\u200c\u200d\FEFF]/g, '').trim();
+                        const code = (item.cdkey || item.code || "").toString().replace(/["\u200b\u200c\u200d\uFEFF]/g, '').trim();
+                        const currentResponseCode = item.response_code || item.code;
 
-                        const oldResponseCode = item.response_code || item.code;
-
-                        if (code && !excludeCodes.includes(Number(oldResponseCode))) {
+                        // Chỉ giữ lại cdkey có response_code là 400067
+                        if (code && Number(currentResponseCode) === targetResponseCode) {
                             allCodes.add(code);
                         }
                     });
@@ -34,7 +34,8 @@ async function startBruteForce() {
     });
 
     const codesToTry = Array.from(allCodes);
-    console.log(`🔍 Tìm thấy tổng cộng ${codesToTry.length} mã duy nhất để thử lại.`);
+    console.log(`🔍 Tìm thấy tổng cộng ${codesToTry.length} mã có mã lỗi 400067 (đã đầy giới hạn nhóm) để thử lại.`);
+
 
     if (codesToTry.length === 0) {
         console.log("✨ Không có mã nào để kiểm tra.");

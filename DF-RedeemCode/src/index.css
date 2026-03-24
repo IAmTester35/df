@@ -27,18 +27,46 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--color-background);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(125, 211, 252, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.1) 0px, transparent 50%);
-  color: var(--color-text);
+  color: #FFFFFF; /* Force White for high contrast */
   min-height: 100vh;
+  margin: 0;
+  background: 
+    linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.8)),
+    url('/bg.avif') no-repeat center center fixed;
+  background-size: cover;
 }
+
+:root {
+  /* Nordic Arctic Blue Palette (Darker variant) */
+  --color-primary: #3B82F6; /* Brighter blue for primary on dark */
+  --color-secondary: #7DD3FC;
+  --color-accent: #0EA5E9;
+  --color-background: #0F172A; /* Midnight Navy */
+  --color-text: #F8FAFC; /* Near white */
+  --color-glass-bg: rgba(30, 41, 59, 0.6); /* Translucent Navy */
+  --color-glass-border: rgba(255, 255, 255, 0.15); /* Subtle border */
+  
+  /* Glassmorphism Variables */
+  --glass-blur: 16px;
+  --glass-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.4);
+  --glass-border: 1px solid var(--color-glass-border);
+  
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 48px;
+}
+
+/* Removal of body::before gradient as it's now in body bg */
+body::before { display: none; }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
   letter-spacing: -0.02em;
+  color: #FFFFFF;
 }
 
 /* Nordic Glass Utility Components */
@@ -56,15 +84,9 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: var(--glass-border);
   box-shadow: var(--glass-shadow);
-  border-radius: 24px;
+  border-radius: 20px;
   padding: var(--space-lg);
   transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    transform: translateY(-4px);
-    background: rgba(255, 255, 255, 0.55);
-    box-shadow: 0 12px 48px 0 rgba(15, 23, 42, 0.12);
-  }
 }
 
 @utility btn-nordic {
@@ -73,30 +95,59 @@ h1, h2, h3, h4, h5, h6 {
   transition-duration: 300ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateY(0);
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: 'Outfit', sans-serif;
+  gap: var(--space-sm);
 }
 
 @utility btn-nordic-primary {
-  @apply btn-nordic bg-[#1E40AF] text-white px-7 py-3;
+  @apply btn-nordic bg-[#3B82F6] text-white px-7 py-3;
 
   &:hover {
-    @apply bg-[#111827];
-    box-shadow: 0 4px 20px rgba(30, 64, 175, 0.3);
+    @apply bg-blue-700;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
     transform: translateY(-2px);
   }
 }
 
 @utility btn-nordic-glass {
-  @apply btn-nordic bg-white/20 backdrop-blur-md border border-white/40 text-[#1E40AF] px-7 py-3;
+  @apply btn-nordic bg-white/10 backdrop-blur-md border border-white/20 text-white px-7 py-3;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.4);
-    border-color: rgba(255, 255, 255, 0.6);
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
   }
+}
+
+@utility btn-ghost {
+  @apply btn-nordic bg-transparent text-slate-400 px-4 py-2 text-sm;
+  &:hover {
+    @apply text-white bg-white/10;
+  }
+}
+
+@utility status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+@utility nav-floating {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1200px, calc(100% - 48px));
+  z-index: 1000;
+  padding: 12px 24px;
+}
+
+.table-row-hover:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
