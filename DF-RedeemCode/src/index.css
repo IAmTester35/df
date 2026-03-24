@@ -1,1 +1,85 @@
 @import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700&display=swap');
+
+:root {
+  /* Nordic Arctic Blue Palette */
+  --color-primary: #1E40AF;
+  --color-secondary: #7DD3FC;
+  --color-accent: #0EA5E9;
+  --color-background: #F8FAFC;
+  --color-text: #0F172A;
+  --color-glass-bg: rgba(255, 255, 255, 0.45);
+  --color-glass-border: rgba(255, 255, 255, 0.6);
+  
+  /* Glassmorphism Variables */
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08);
+  --glass-border: 1px solid var(--color-glass-border);
+  
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 48px;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-background);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(125, 211, 252, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.1) 0px, transparent 50%);
+  color: var(--color-text);
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Nordic Glass Utility Components */
+.glass-effect {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.nordic-card {
+  @apply glass-effect;
+  border-radius: 24px;
+  padding: var(--space-lg);
+  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nordic-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 12px 48px 0 rgba(15, 23, 42, 0.12);
+}
+
+.btn-nordic {
+  @apply font-semibold transition-all duration-300 transform rounded-[14px] cursor-pointer inline-flex items-center justify-center;
+  font-family: 'Outfit', sans-serif;
+}
+
+.btn-nordic-primary {
+  @apply btn-nordic bg-[#1E40AF] text-white px-7 py-3;
+}
+
+.btn-nordic-primary:hover {
+  @apply bg-[#111827] shadow-[0_4px_20px_rgba(30,64,175,0.3)] -translate-y-0.5;
+}
+
+.btn-nordic-glass {
+  @apply btn-nordic bg-white/20 backdrop-blur-md border border-white/40 text-[#1E40AF] px-7 py-3;
+}
+
+.btn-nordic-glass:hover {
+  @apply bg-white/40 border-white/60 -translate-y-0.5;
+}
