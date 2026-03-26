@@ -76,8 +76,13 @@ export const useRedeem = () => {
           const userRef = ref(db, `u/${currentUser.uid}`);
           const snapshot = await get(userRef);
           if (snapshot.exists()) {
-            const data = snapshot.val() as UserMeta;
-            setUserMeta(data);
+            const data = snapshot.val();
+            const lastSync = typeof data.lastSync === 'number' ? data.lastSync : (typeof data.s === 'number' ? data.s : 0);
+            const meta: UserMeta = {
+              ...data,
+              lastSync
+            };
+            setUserMeta(meta);
             if (data.masterUrl) {
               setMasterUrl(data.masterUrl);
               localStorage.setItem(LOCAL_MASTER_URL_KEY, data.masterUrl);
@@ -144,7 +149,7 @@ export const useRedeem = () => {
     setHasNewCodes(false);
 
     if (user && !user.isAnonymous) {
-      update(ref(db, `u/${user.uid}`), { s: maxTs });
+      update(ref(db, `u/${user.uid}`), { lastSync: maxTs, s: null });
     }
   }, [user]);
 
@@ -257,7 +262,7 @@ export const useRedeem = () => {
         localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTsInBatch.toString());
         setUserMeta(prev => ({ ...prev, lastSync: maxTsInBatch }));
         if (user && !user.isAnonymous) {
-          update(ref(db, `u/${user.uid}`), { s: maxTsInBatch });
+          update(ref(db, `u/${user.uid}`), { lastSync: maxTsInBatch, s: null });
         }
       }
 
@@ -401,6 +406,11 @@ export const useRedeem = () => {
     }
   }, [history, inputValue, masterUrl, saveToLocal]);
 
+  const handleDeleteHistory = useCallback((id: string) => {
+    const newHistory = history.filter(h => h.id !== id);
+    saveToLocal(newHistory);
+  }, [history, saveToLocal]);
+
   return {
     user,
     userMeta,
@@ -416,6 +426,7 @@ export const useRedeem = () => {
     handleLogout,
     saveMasterUrl,
     handleSync,
-    handleRedeem
+    handleRedeem,
+    handleDeleteHistory
   };
 };

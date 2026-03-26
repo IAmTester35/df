@@ -1,13 +1,34 @@
 import React from "react";
-import { Database, CheckCircle2, XCircle, Cloud } from "lucide-react";
+import { Database, CheckCircle2, XCircle, Cloud, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import Swal from "sweetalert2";
 import type { RedeemHistory } from "../hooks/useRedeem";
 
 interface RedeemHistoryTableProps {
   history: RedeemHistory[];
+  onDelete: (id: string) => void;
 }
 
-const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history }) => {
+const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history, onDelete }) => {
+  const handleDelete = (item: RedeemHistory) => {
+    Swal.fire({
+      title: 'Xác nhận xoá?',
+      text: `Bạn có chắc muốn xoá mã ${item.cdkey} khỏi lịch sử?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#334155',
+      confirmButtonText: 'Xoá ngay',
+      cancelButtonText: 'Huỷ',
+      background: '#0f172a',
+      color: '#f8fafc'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        onDelete(item.id);
+      }
+    });
+  };
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between px-4">
@@ -24,6 +45,7 @@ const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history }) => {
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Mã CDKey</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Trạng thái</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Thời gian</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Hành động</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -49,11 +71,20 @@ const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history }) => {
                       <td className="px-6 py-4 text-xs text-slate-500 italic">
                         {new Date(item.timestamp).toLocaleString()}
                       </td>
+                      <td className="px-6 py-4 text-right">
+                        <button 
+                          onClick={() => handleDelete(item)}
+                          className="p-2 text-slate-500 hover:text-red-400 transition-colors"
+                          title="Xoá khỏi lịch sử"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
                     </motion.tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={3} className="px-6 py-16 text-center">
+                    <td colSpan={4} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center gap-4 text-slate-500">
                         <Cloud size={48} strokeWidth={1} className="opacity-30" />
                         <p className="text-sm">Chưa có dữ liệu lịch sử cục bộ</p>

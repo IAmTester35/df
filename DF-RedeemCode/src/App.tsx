@@ -19,7 +19,8 @@ const App = () => {
     handleLogout,
     saveMasterUrl,
     handleSync,
-    handleRedeem
+    handleRedeem,
+    handleDeleteHistory
   } = useRedeem();
 
   return (
@@ -48,7 +49,7 @@ const App = () => {
           handleRedeem={handleRedeem} 
         />
 
-        <RedeemHistoryTable history={history} />
+        <RedeemHistoryTable history={history} onDelete={handleDeleteHistory} />
       </main>
 
       <footer className="mt-auto py-12 text-center space-y-2 opacity-30">
