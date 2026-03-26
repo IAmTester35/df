@@ -10,12 +10,12 @@ interface NavbarProps {
   handleLogout: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ 
-  user, 
-  showSettings, 
-  setShowSettings, 
-  handleLogin, 
-  handleLogout 
+const Navbar: React.FC<NavbarProps> = ({
+  user,
+  showSettings,
+  setShowSettings,
+  handleLogin,
+  handleLogout
 }) => {
   return (
     <nav className="nav-floating glass-effect flex items-center justify-between rounded-full">
@@ -31,33 +31,32 @@ const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center gap-4">
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className={`p-2 rounded-full transition-all ${
-            showSettings ? 'bg-blue-500/20 text-blue-400 rotate-90!' : 'hover:bg-white/10 text-slate-400'
-          }`}
+          className={`p-2 rounded-full transition-all cursor-pointer ${showSettings ? 'bg-blue-500/20 text-blue-400 rotate-90!' : 'hover:bg-white/10 text-slate-400'
+            }`}
         >
           <Settings size={20} />
         </button>
 
         {user && !user.isAnonymous ? (
-          <div className="flex items-center gap-3 bg-white/10 pl-1 pr-3 py-1 rounded-full border border-white/10">
-            <img 
-              src={user.photoURL || ""} 
-              alt="avatar" 
-              className="w-8 h-8 rounded-full border border-white/20" 
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-[6px] pl-1 pr-3 py-1 rounded-full border border-white/10">
+            <img
+              src={user.photoURL || ""}
+              alt="avatar"
+              className="w-8 h-8 rounded-full border border-white/20"
             />
             <span className="text-sm font-bold leading-none hidden sm:block">
               {user.displayName}
             </span>
-            <button 
-              onClick={handleLogout} 
+            <button
+              onClick={handleLogout}
               className="ml-2 p-1 hover:bg-red-500/20 rounded-full text-slate-400 hover:text-red-400"
             >
               <LogOut size={16} />
             </button>
           </div>
         ) : (
-          <button 
-            onClick={handleLogin} 
+          <button
+            onClick={handleLogin}
             className="btn-nordic-glass py-2! px-5!"
           >
             <CircleUser size={18} />

@@ -30,7 +30,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
           <h2 className="text-3xl font-bold text-white">Nhập hàng loạt mã</h2>
           <p className="text-slate-400 text-sm">Mỗi dòng 1 mã CDKey. Hệ thống tự động lọc trùng và delay 300ms.</p>
         </div>
-        <div className={`flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border transition-colors ${
+        <div className={`flex flex-col gap-3 p-4 bg-white/5 backdrop-blur-[6px] rounded-2xl border transition-colors ${
           hasNewCodes ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'
         }`}>
           <textarea 

@@ -13,7 +13,7 @@
   --color-glass-border: rgba(255, 255, 255, 0.6);
   
   /* Glassmorphism Variables */
-  --glass-blur: 16px;
+  --glass-blur: 6px;
   --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08);
   --glass-border: 1px solid var(--color-glass-border);
   
@@ -47,7 +47,7 @@ body {
   /* Refined Glassmorphism */
   --color-glass-bg: rgba(255, 255, 255, 0.05); /* Very light glass */
   --color-glass-border: rgba(255, 255, 255, 0.12);
-  --glass-blur: 24px;
+  --glass-blur: 6px;
   --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   --glass-border: 1px solid var(--color-glass-border);
   
@@ -114,7 +114,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @utility btn-nordic-glass {
-  @apply btn-nordic bg-white/10 backdrop-blur-md border border-white/20 text-white px-7 py-3;
+  @apply btn-nordic bg-white/10 backdrop-blur-[6px] border border-white/20 text-white px-7 py-3;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.2);
