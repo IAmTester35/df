@@ -13,15 +13,15 @@ import {
   limitToLast,
   startAfter
 } from "firebase/database";
-import { 
-  DEFAULT_MASTER_URL, 
-  LOCAL_MASTER_URL_KEY, 
-  LOCAL_STORAGE_KEY, 
-  LOCAL_SYNC_TIME_KEY 
+import {
+  DEFAULT_MASTER_URL,
+  LOCAL_MASTER_URL_KEY,
+  LOCAL_STORAGE_KEY,
+  LOCAL_SYNC_TIME_KEY
 } from "../lib/constants";
-import { 
-  getParams, 
-  unescapeFirebaseKey, 
+import {
+  getParams,
+  unescapeFirebaseKey,
   escapeFirebaseKey,
   parseInputCodes
 } from "../lib/utils";
@@ -41,6 +41,52 @@ export interface RedeemHistory {
   message: string;
   timestamp: number;
 }
+
+const showSummaryAlert = (
+  results: { cdkey: string; status: 'success' | 'failure'; msg: string }[],
+  options: {
+    title: string;
+    successTitle: string;
+    successText: string;
+  }
+) => {
+  const successes = results.filter(r => r.status === 'success');
+  const failures = results.filter(r => r.status === 'failure');
+
+  if (failures.length > 0) {
+    let statsHtml = `<div style="margin-bottom: 15px; text-align: left; border-bottom: 1px solid #eee; padding-bottom: 10px;">`;
+    if (successes.length > 0) {
+      statsHtml += `<div style="color: #10b981; margin-bottom: 5px;">✅ Thành công: <b>${successes.length}</b> mã</div>`;
+    }
+    statsHtml += `<div style="color: #ef4444;">❌ Thất bại: <b>${failures.length}</b> mã</div>`;
+    statsHtml += `</div>`;
+
+    let errorHtml = '<div style="text-align: left; font-weight: bold; font-size: 0.9em; margin-bottom: 5px;">Chi tiết lỗi:</div>';
+    errorHtml += '<ul style="text-align: left; max-height: 200px; overflow-y: auto; font-size: 0.85em; margin: 0; padding-left: 20px; color: #666;">';
+    failures.forEach(f => {
+      errorHtml += `<li style="margin-bottom: 4px;"><strong>${f.cdkey}</strong>: <span style="color: #ef4444">${f.msg}</span></li>`;
+    });
+    errorHtml += '</ul>';
+
+    Swal.fire({
+      icon: successes.length > 0 ? 'warning' : 'error',
+      title: options.title,
+      html: statsHtml + errorHtml,
+      confirmButtonText: 'Đã hiểu',
+      customClass: {
+        htmlContainer: 'text-left'
+      }
+    });
+  } else if (successes.length > 0) {
+    Swal.fire({
+      icon: 'success',
+      title: options.successTitle,
+      text: options.successText,
+      timer: 3000,
+      showConfirmButton: false
+    });
+  }
+};
 
 export const useRedeem = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -106,7 +152,7 @@ export const useRedeem = () => {
         const safeKey = child.key;
         const val = child.val() as number;
         const ts = Math.floor(val / 10);
-        
+
         if (ts > userMeta.lastSync) {
           setHasNewCodes(true);
         } else if (ts === userMeta.lastSync && safeKey) {
@@ -195,8 +241,9 @@ export const useRedeem = () => {
       const entries = Object.entries(data);
       const newHistoryEntries: RedeemHistory[] = [...currentHistory];
       const config = getParams(masterUrl);
-
       let maxTsInBatch = userMeta.lastSync;
+
+      const syncSummary: { cdkey: string; status: 'success' | 'failure'; msg: string }[] = [];
 
       for (const [safeKey, val] of entries) {
         const value = val as number;
@@ -219,15 +266,14 @@ export const useRedeem = () => {
                 const response = await fetch(targetUrl, {
                   method: "POST",
                   headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-                  body: JSON.stringify({ 
-                    masterUrl, 
-                    cdkey, 
-                    lang_type: config.lang_type, 
-                    role_info: { game_id: config.game_id } 
+                  body: JSON.stringify({
+                    masterUrl,
+                    cdkey,
+                    lang_type: config.lang_type,
+                    role_info: { game_id: config.game_id }
                   })
                 });
-                
-                // Cố gắng đọc kết quả thực tế từ Worker
+
                 const result = await response.json().catch(() => null);
                 if (result) {
                   if (result.code !== 0) {
@@ -244,6 +290,7 @@ export const useRedeem = () => {
               await new Promise(r => setTimeout(r, 300));
             }
 
+            syncSummary.push({ cdkey, status: actualStatus, msg: actualMsg });
             newHistoryEntries.push({
               id: `v-${safeKey}`,
               cdkey,
@@ -256,7 +303,7 @@ export const useRedeem = () => {
           }
         }
       }
-      
+
       // Update lastSync to the latest timestamp processed in the batch
       if (maxTsInBatch > userMeta.lastSync) {
         localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTsInBatch.toString());
@@ -267,10 +314,22 @@ export const useRedeem = () => {
       }
 
       saveToLocal(newHistoryEntries);
-      Swal.fire({
-        icon: 'success',
-        title: 'Thành công',
-        text: `Đã đồng bộ xong! Hệ thống đã tự động nạp ${addedCount} mã mới.`,
+
+      if (addedCount === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Cập nhật',
+          text: 'Không có mã mới nào từ server!',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        return;
+      }
+
+      showSummaryAlert(syncSummary, {
+        title: 'Kết quả đồng bộ',
+        successTitle: 'Thành công',
+        successText: `Đã đồng bộ xong! Hệ thống đã nạp thêm ${addedCount} mã mới.`
       });
     } catch (e) {
       console.error("Sync error", e);
@@ -283,7 +342,7 @@ export const useRedeem = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal]);
+  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user]);
 
   const handleRedeem = useCallback(async () => {
     if (!inputValue.trim()) return;
@@ -314,7 +373,7 @@ export const useRedeem = () => {
     try {
       setIsSyncing(true);
       let currentHistory = [...history];
-      const summary: { cdkey: string, msg: string, status: string }[] = [];
+      const summary: { cdkey: string, msg: string, status: 'success' | 'failure' }[] = [];
 
       for (let i = 0; i < codesToRun.length; i++) {
         const cdkey = codesToRun[i];
@@ -327,18 +386,18 @@ export const useRedeem = () => {
           const response = await fetch(targetUrl, {
             method: "POST",
             headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-            body: JSON.stringify({ 
-              masterUrl, 
-              cdkey, 
-              lang_type: config.lang_type, 
-              role_info: { game_id: config.game_id } 
+            body: JSON.stringify({
+              masterUrl,
+              cdkey,
+              lang_type: config.lang_type,
+              role_info: { game_id: config.game_id }
             })
           });
 
           // Allow reading JSON even if response is not ok (for 4xx mappings from proxy)
-          const result = await response.json().catch(() => ({ 
-            code: response.status === 200 ? 0 : -1, 
-            msg: `Proxy/HTTP ${response.status} (Internal Error)` 
+          const result = await response.json().catch(() => ({
+            code: response.status === 200 ? 0 : -1,
+            msg: `Proxy/HTTP ${response.status} (Internal Error)`
           }));
 
           const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
@@ -354,7 +413,7 @@ export const useRedeem = () => {
 
           currentHistory = [newItem, ...currentHistory];
           setHistory([...currentHistory].sort((a, b) => b.timestamp - a.timestamp));
-          
+
           summary.push({ cdkey, msg: displayMsg, status: newItem.status });
 
         } catch (err: any) {
@@ -370,29 +429,11 @@ export const useRedeem = () => {
       saveToLocal(currentHistory);
       setInputValue("");
 
-      const failures = summary.filter(s => s.status === 'failure');
-      if (failures.length > 0) {
-        let errorHtml = '<ul style="text-align: left; max-height: 200px; overflow-y: auto; font-size: 0.8em; margin: 0; padding-left: 20px;">';
-        failures.forEach(f => {
-          errorHtml += `<li><strong>${f.cdkey}</strong>: <span style="color: #ef4444">${f.msg}</span></li>`;
-        });
-        errorHtml += '</ul>';
-
-        Swal.fire({
-          icon: 'warning',
-          title: 'Kết quả nạp mã',
-          html: `<div style="margin-bottom: 10px;">Đã xử lý xong ${summary.length} mã, phát hiện <strong>${failures.length} lỗi</strong>:</div>${errorHtml}`,
-          confirmButtonText: 'Đã hiểu'
-        });
-      } else {
-        Swal.fire({
-          icon: 'success',
-          title: 'Thành công',
-          text: `Đã nạp thành công ${summary.length} mã!`,
-          timer: 2000,
-          showConfirmButton: false
-        });
-      }
+      showSummaryAlert(summary, {
+        title: 'Kết quả nạp mã',
+        successTitle: 'Thành công',
+        successText: `Đã nạp thành công tất cả ${summary.length} mã!`
+      });
     } catch (e: any) {
       console.error("Batch redeem failed", e);
       Swal.fire({
