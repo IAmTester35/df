@@ -356,7 +356,6 @@ export const useRedeem = () => {
         title: 'Thông báo',
         text: 'Tất cả mã đã được nhập hoặc đã có trong lịch sử!',
       });
-      setInputValue("");
       return;
     }
 
@@ -427,7 +426,6 @@ export const useRedeem = () => {
       }
 
       saveToLocal(currentHistory);
-      setInputValue("");
 
       showSummaryAlert(summary, {
         title: 'Kết quả nạp mã',
