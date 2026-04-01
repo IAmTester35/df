@@ -1,4 +1,4 @@
-const FULL_URL = "https://sg-act.playerinfinite.com/api/proxy/present/CdkV2/RedeemCDKey?cdkey=12312&channel=10&game_id=30150&gameid=30150&openid=6762653709957283006&token=53c80bf766d7ed618e0b163cae0f7377adc3fc2c&account_type=1&lang_type=en&u=3fe9c8e7-0381-47f4-a50c-b0b28b40165c&a=10005&ts=1774336014&s=73bd86c69f177956c152cc483a887f31";
+const FULL_URL = "https://sg-act.playerinfinite.com/api/proxy/present/CdkV2/RedeemCDKey?cdkey=123&channel=10&game_id=30150&gameid=30150&openid=6762653709957283006&token=616ad972e691414c9a667cf77898ec2c923b286d&account_type=1&lang_type=en&u=5e8139f0-5600-4c23-8e1c-ee0e572ebc50&a=10005&ts=1775007604&s=332ee2687678c77092145bdc0d6c0a40";
 
 // Trích xuất config từ FULL_URL
 const urlParams = new URL(FULL_URL).searchParams;

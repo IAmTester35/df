@@ -3578,5 +3578,145 @@
         "cdkey": "N4SQWgxYcHw7gUci3zJy",
         "message": "The current cdk does not match",
         "response_code": 400054
+    },
+    {
+        "cdkey": "3/29",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "3/25",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "3/23",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFCOHERENCE35-我會怕",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFCONCORD82-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2203C28-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2203C43-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2203C61-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2203C77-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2203C86-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2203C95-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "3/22",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2103C32-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2103C41-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2103C68-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2103C54-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2103C85-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFUTS26PL2103C90-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFVANGUARD76-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "3/21",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFakaonikou-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFakachamp-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFGENESIS05-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "LAISEGAME-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFCATALYST87-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "3/20",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFPARAGON41-軒提供",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFakachamp",
+        "message": "current cdkey present error",
+        "response_code": 400073
     }
 ]
