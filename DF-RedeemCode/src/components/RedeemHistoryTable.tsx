@@ -11,22 +11,7 @@ interface RedeemHistoryTableProps {
 
 const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history, onDelete }) => {
   const handleDelete = (item: RedeemHistory) => {
-    Swal.fire({
-      title: 'Xác nhận xoá?',
-      text: `Bạn có chắc muốn xoá mã ${item.cdkey} khỏi lịch sử?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#334155',
-      confirmButtonText: 'Xoá ngay',
-      cancelButtonText: 'Huỷ',
-      background: '#0f172a',
-      color: '#f8fafc'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        onDelete(item.id);
-      }
-    });
+    onDelete(item.id);
   };
 
   return (

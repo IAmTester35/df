@@ -157,7 +157,7 @@ export const useRedeem = () => {
           setHasNewCodes(true);
         } else if (ts === userMeta.lastSync && safeKey) {
           const cdkey = unescapeFirebaseKey(safeKey);
-          if (!history.some(h => h.cdkey === cdkey)) {
+          if (!history.some(h => h.cdkey.toUpperCase() === cdkey.toUpperCase())) {
             setHasNewCodes(true);
           }
         }
@@ -212,7 +212,8 @@ export const useRedeem = () => {
     setIsSyncing(true);
     try {
       const currentHistory = [...history];
-      const localKeys = new Set(currentHistory.map(h => h.cdkey));
+      // Use uppercase set for case-insensitive lookup
+      const localKeys = new Set(currentHistory.map(h => h.cdkey.toUpperCase()));
       let addedCount = 0;
 
       let syncQuery;
@@ -252,8 +253,9 @@ export const useRedeem = () => {
         const cdkey = unescapeFirebaseKey(safeKey);
 
         if (ts > maxTsInBatch) maxTsInBatch = ts;
+        const upperCdKey = cdkey.toUpperCase();
 
-        if (!localKeys.has(cdkey)) {
+        if (!localKeys.has(upperCdKey)) {
           // Status 0 (Success) or 1 (Account-based Limit) both mean the code is worth trying
           if (statusDigit === 0 || statusDigit === 1) {
             let actualMsg = statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)';
@@ -276,6 +278,16 @@ export const useRedeem = () => {
 
                 const result = await response.json().catch(() => null);
                 if (result) {
+                  if (Number(result.code) === 300001) {
+                    Swal.fire({
+                      icon: 'error',
+                      title: 'Master URL hết hạn',
+                      text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!',
+                    });
+                    setIsSyncing(false);
+                    saveToLocal(newHistoryEntries);
+                    return; // Stop entire sync
+                  }
                   if (result.code !== 0) {
                     actualStatus = 'failure';
                     actualMsg = result.msg || result.message || `Lỗi ${result.code}`;
@@ -298,7 +310,7 @@ export const useRedeem = () => {
               message: actualMsg,
               timestamp: ts * 1000
             });
-            localKeys.add(cdkey);
+            localKeys.add(upperCdKey);
             addedCount++;
           }
         }
@@ -348,7 +360,7 @@ export const useRedeem = () => {
     if (!inputValue.trim()) return;
 
     const uniqueCodes = parseInputCodes(inputValue);
-    const codesToRun = uniqueCodes.filter(c => !history.some(h => h.cdkey === c));
+    const codesToRun = uniqueCodes.filter(c => !history.some(h => h.cdkey.toUpperCase() === c.toUpperCase()));
 
     if (codesToRun.length === 0) {
       Swal.fire({
@@ -398,6 +410,17 @@ export const useRedeem = () => {
             code: response.status === 200 ? 0 : -1,
             msg: `Proxy/HTTP ${response.status} (Internal Error)`
           }));
+
+          if (Number(result.code) === 300001) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Master URL hết hạn',
+              text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!',
+            });
+            saveToLocal(currentHistory);
+            setIsSyncing(false);
+            return; // Stop entire batch
+          }
 
           const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
           const displayMsg = result.msg || result.message || (statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`);

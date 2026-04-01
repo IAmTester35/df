@@ -28,11 +28,26 @@ export const escapeFirebaseKey = (key: string) => {
 };
 
 export const parseInputCodes = (input: string) => {
-    return Array.from(new Set(
-        input.split(/\r?\n/)
-        .map(line => line.replace(/["\u200b\u200c\u200d\uFEFF]/g, '').trim())
-        .filter(code => code && code.length > 0)
-    ));
+    const rawLines = input.split(/\r?\n/);
+    const cleanedCodes: string[] = [];
+    const seenUppers = new Set<string>();
+
+    for (const line of rawLines) {
+        // Step 1: Clean special chars and trim, then split by whitespace/tabs like index.js
+        const cleaned = line
+            .replace(/["\u200b\u200c\u200d\uFEFF]/g, '')
+            .trim()
+            .split(/[\s\t]+/)[0];
+
+        if (cleaned && cleaned.length > 0) {
+            const upper = cleaned.toUpperCase();
+            if (!seenUppers.has(upper)) {
+                seenUppers.add(upper);
+                cleanedCodes.push(cleaned);
+            }
+        }
+    }
+    return cleanedCodes;
 };
 
 export const processSyncData = (data: Record<string, any>, localKeys: Set<string>) => {
