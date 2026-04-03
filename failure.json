@@ -3718,5 +3718,30 @@
         "cdkey": "DFakachamp",
         "message": "current cdkey present error",
         "response_code": 400073
+    },
+    {
+        "cdkey": "eRjaBZxYd2eFyT2YkPPL",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "eRjaBZxZ7bBfyMbHTNs6",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "eRjaBZxZixQeNRe3CerX",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "8dUx7pxYLKmTmHb37qmq",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
+    },
+    {
+        "cdkey": "eRjaBZxYUwzxEksc2vWp",
+        "message": "The current cdkey has reached the redemption limit",
+        "response_code": 400068
     }
 ]
