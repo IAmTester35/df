@@ -3743,5 +3743,100 @@
         "cdkey": "eRjaBZxYUwzxEksc2vWp",
         "message": "The current cdkey has reached the redemption limit",
         "response_code": 400068
+    },
+    {
+        "cdkey": "echo",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "ripples",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "morse",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "intotheburst",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "damgetsbetter",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DFVSU2X6M8",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFVSW1C5D9",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFVSE4K7G1",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "4/5",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DFVS3S7FR4",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFVS8T9SZ4",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "DFVSH5N4C7",
+        "message": "The end time has passed",
+        "response_code": 400070
+    },
+    {
+        "cdkey": "4/4",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "4/3",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "BJX888-TGFML-JH2AL",
+        "message": "system error",
+        "response_code": 51
+    },
+    {
+        "cdkey": "DELTA2025",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DELTA2026",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "DFOSS260414B11",
+        "message": "The current cdk does not match",
+        "response_code": 400054
+    },
+    {
+        "cdkey": "AFRICAHEART",
+        "message": "The current cdk does not match",
+        "response_code": 400054
     }
 ]
