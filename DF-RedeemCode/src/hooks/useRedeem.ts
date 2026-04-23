@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
 import { auth, db } from "../lib/firebase";
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
@@ -43,49 +43,35 @@ export interface RedeemHistory {
 }
 
 const showSummaryAlert = (
-  results: { cdkey: string; status: 'success' | 'failure'; msg: string }[],
+  results: { cdkey: string; status: 'success' | 'failure' | 'skipped'; msg: string }[],
   options: {
     title: string;
-    successTitle: string;
-    successText: string;
   }
 ) => {
-  const successes = results.filter(r => r.status === 'success');
-  const failures = results.filter(r => r.status === 'failure');
-
-  if (failures.length > 0) {
-    let statsHtml = `<div style="margin-bottom: 15px; text-align: left; border-bottom: 1px solid #eee; padding-bottom: 10px;">`;
-    if (successes.length > 0) {
-      statsHtml += `<div style="color: #10b981; margin-bottom: 5px;">✅ Thành công: <b>${successes.length}</b> mã</div>`;
+  let html = '<div style="text-align: left; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85em; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 8px; border: 1px solid rgba(0,0,0,0.05);">';
+  
+  results.forEach(r => {
+    if (r.status === 'success') {
+      html += `<div style="color: #10b981; margin-bottom: 4px;">✅ ${r.cdkey}</div>`;
+    } else if (r.status === 'failure') {
+      html += `<div style="color: #ef4444; margin-bottom: 4px;">❌ ${r.cdkey}: ${r.msg}</div>`;
+    } else if (r.status === 'skipped') {
+      html += `<div style="color: #64748b; margin-bottom: 4px;">- ${r.cdkey}: Đã nạp code này</div>`;
     }
-    statsHtml += `<div style="color: #ef4444;">❌ Thất bại: <b>${failures.length}</b> mã</div>`;
-    statsHtml += `</div>`;
+  });
+  html += '</div>';
 
-    let errorHtml = '<div style="text-align: left; font-weight: bold; font-size: 0.9em; margin-bottom: 5px;">Chi tiết lỗi:</div>';
-    errorHtml += '<ul style="text-align: left; max-height: 200px; overflow-y: auto; font-size: 0.85em; margin: 0; padding-left: 20px; color: #666;">';
-    failures.forEach(f => {
-      errorHtml += `<li style="margin-bottom: 4px;"><strong>${f.cdkey}</strong>: <span style="color: #ef4444">${f.msg}</span></li>`;
-    });
-    errorHtml += '</ul>';
+  const hasFailures = results.some(r => r.status === 'failure');
 
-    Swal.fire({
-      icon: successes.length > 0 ? 'warning' : 'error',
-      title: options.title,
-      html: statsHtml + errorHtml,
-      confirmButtonText: 'Đã hiểu',
-      customClass: {
-        htmlContainer: 'text-left'
-      }
-    });
-  } else if (successes.length > 0) {
-    Swal.fire({
-      icon: 'success',
-      title: options.successTitle,
-      text: options.successText,
-      timer: 3000,
-      showConfirmButton: false
-    });
-  }
+  Swal.fire({
+    icon: hasFailures ? 'warning' : 'success',
+    title: options.title,
+    html: html,
+    confirmButtonText: 'Đã hiểu',
+    customClass: {
+      htmlContainer: 'text-left'
+    }
+  });
 };
 
 export const useRedeem = () => {
@@ -98,23 +84,46 @@ export const useRedeem = () => {
   const [masterUrl, setMasterUrl] = useState(DEFAULT_MASTER_URL);
   const [showSettings, setShowSettings] = useState(false);
 
-  useEffect(() => {
-    // Migrate on mount
-    migrateStorage();
+  // Use refs to avoid effect dependencies
+  const historyRef = useRef(history);
+  const userMetaRef = useRef(userMeta);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  useEffect(() => {
+    userMetaRef.current = userMeta;
+  }, [userMeta]);
+
+  // Initial load
+  useEffect(() => {
+    migrateStorage();
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) setHistory(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setHistory(parsed);
+        historyRef.current = parsed;
+      }
 
       const storedSync = localStorage.getItem(LOCAL_SYNC_TIME_KEY);
-      if (storedSync) setUserMeta(prev => ({ ...prev, lastSync: Number(storedSync) }));
+      if (storedSync) {
+        const syncTime = Number(storedSync);
+        setUserMeta(prev => ({ ...prev, lastSync: syncTime }));
+        userMetaRef.current = { ...userMetaRef.current, lastSync: syncTime };
+      }
 
       const storedUrl = localStorage.getItem(LOCAL_MASTER_URL_KEY);
       if (storedUrl) setMasterUrl(storedUrl);
     } catch (e) {
       console.error("Local load error", e);
     }
+  }, []);
 
+  // Auth listener
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -124,10 +133,7 @@ export const useRedeem = () => {
           if (snapshot.exists()) {
             const data = snapshot.val();
             const lastSync = typeof data.lastSync === 'number' ? data.lastSync : (typeof data.s === 'number' ? data.s : 0);
-            const meta: UserMeta = {
-              ...data,
-              lastSync
-            };
+            const meta: UserMeta = { ...data, lastSync };
             setUserMeta(meta);
             if (data.masterUrl) {
               setMasterUrl(data.masterUrl);
@@ -145,7 +151,11 @@ export const useRedeem = () => {
         signInAnonymously(auth);
       }
     });
+    return unsubscribeAuth;
+  }, []);
 
+  // DB listener
+  useEffect(() => {
     const latestQuery = query(ref(db, 'c'), orderByValue(), limitToLast(1));
     const unsubscribeDb = onValue(latestQuery, (snapshot) => {
       snapshot.forEach((child) => {
@@ -153,22 +163,21 @@ export const useRedeem = () => {
         const val = child.val() as number;
         const ts = Math.floor(val / 10);
 
-        if (ts > userMeta.lastSync) {
+        const currentMeta = userMetaRef.current;
+        const currentHistory = historyRef.current;
+
+        if (ts > currentMeta.lastSync) {
           setHasNewCodes(true);
-        } else if (ts === userMeta.lastSync && safeKey) {
+        } else if (ts === currentMeta.lastSync && safeKey) {
           const cdkey = unescapeFirebaseKey(safeKey);
-          if (!history.some(h => h.cdkey.toUpperCase() === cdkey.toUpperCase())) {
+          if (!currentHistory.some(h => h.cdkey.toUpperCase() === cdkey.toUpperCase())) {
             setHasNewCodes(true);
           }
         }
       });
     });
-
-    return () => {
-      unsubscribeAuth();
-      unsubscribeDb();
-    };
-  }, [userMeta.lastSync, history]);
+    return unsubscribeDb;
+  }, []);
 
   const handleLogin = useCallback(async () => {
     const provider = new GoogleAuthProvider();
@@ -184,7 +193,73 @@ export const useRedeem = () => {
     }
   }, []);
 
-  const handleLogout = useCallback(() => signOut(auth), []);
+  const handleLogout = useCallback(async () => {
+    await signOut(auth);
+    setHistory([]);
+    setUserMeta({ lastSync: 0 });
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    localStorage.removeItem(LOCAL_SYNC_TIME_KEY);
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    Swal.fire({
+      title: 'Xác nhận xoá?',
+      text: "Toàn bộ lịch sử nạp mã cục bộ sẽ bị xoá vĩnh viễn!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#334155',
+      confirmButtonText: 'Vẫn xoá',
+      cancelButtonText: 'Huỷ'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setHistory([]);
+        setUserMeta(prev => ({ ...prev, lastSync: 0 }));
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        localStorage.removeItem(LOCAL_SYNC_TIME_KEY);
+        Swal.fire('Đã xoá!', 'Lịch sử đã được dọn sạch.', 'success');
+      }
+    });
+  }, []);
+
+  const callRedeemApi = useCallback(async (cdkey: string, config: any, signal: AbortSignal) => {
+    try {
+      const workerUrl = import.meta.env.VITE_WORKER_URL;
+      const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
+        signal,
+        body: JSON.stringify({
+          masterUrl,
+          cdkey,
+          lang_type: config.lang_type,
+          role_info: { game_id: config.game_id }
+        })
+      });
+
+      const result = await response.json().catch(() => ({
+        code: response.status === 200 ? 0 : -1,
+        msg: `Proxy/HTTP ${response.status} (Internal Error)`
+      }));
+
+      if (Number(result.code) === 300001) {
+        return { expired: true, status: 'failure' as const, message: 'Expired' };
+      }
+
+      const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
+      const displayMsg = result.msg || result.message || (statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`);
+
+      return {
+        expired: false,
+        status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure',
+        message: displayMsg
+      };
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      return { expired: false, status: 'failure' as const, message: err.message || "Network Error" };
+    }
+  }, [masterUrl]);
 
   const saveToLocal = useCallback((newHistory: RedeemHistory[]) => {
     const maxTs = Math.max(0, ...newHistory.map(h => Math.floor(h.timestamp / 1000)));
@@ -210,14 +285,18 @@ export const useRedeem = () => {
   const handleSync = useCallback(async () => {
     if (isSyncing) return;
     setIsSyncing(true);
+
+    // Create new controller for this sync session
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const currentHistory = [...history];
-      // Use uppercase set for case-insensitive lookup
       const localKeys = new Set(currentHistory.map(h => h.cdkey.toUpperCase()));
       let addedCount = 0;
 
       let syncQuery;
-      if (currentHistory.length === 0) {
+      if (userMeta.lastSync === 0) {
         syncQuery = query(ref(db, 'c'), orderByValue());
       } else {
         syncQuery = query(ref(db, 'c'), orderByValue(), startAfter(userMeta.lastSync * 10 + 1));
@@ -247,6 +326,8 @@ export const useRedeem = () => {
       const syncSummary: { cdkey: string; status: 'success' | 'failure'; msg: string }[] = [];
 
       for (const [safeKey, val] of entries) {
+        if (controller.signal.aborted) break;
+
         const value = val as number;
         const ts = Math.floor(value / 10);
         const statusDigit = value % 10;
@@ -256,51 +337,25 @@ export const useRedeem = () => {
         const upperCdKey = cdkey.toUpperCase();
 
         if (!localKeys.has(upperCdKey)) {
-          // Status 0 (Success) or 1 (Account-based Limit) both mean the code is worth trying
           if (statusDigit === 0 || statusDigit === 1) {
             let actualMsg = statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)';
             let actualStatus: 'success' | 'failure' = 'success';
 
             if (config.openid) {
-              try {
-                const workerUrl = import.meta.env.VITE_WORKER_URL;
-                const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-                const response = await fetch(targetUrl, {
-                  method: "POST",
-                  headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-                  body: JSON.stringify({
-                    masterUrl,
-                    cdkey,
-                    lang_type: config.lang_type,
-                    role_info: { game_id: config.game_id }
-                  })
-                });
-
-                const result = await response.json().catch(() => null);
-                if (result) {
-                  if (Number(result.code) === 300001) {
-                    Swal.fire({
-                      icon: 'error',
-                      title: 'Master URL hết hạn',
-                      text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!',
-                    });
-                    setIsSyncing(false);
-                    saveToLocal(newHistoryEntries);
-                    return; // Stop entire sync
-                  }
-                  if (result.code !== 0) {
-                    actualStatus = 'failure';
-                    actualMsg = result.msg || result.message || `Lỗi ${result.code}`;
-                  } else {
-                    actualStatus = 'success';
-                    actualMsg = 'Thành công';
-                  }
-                }
-              } catch (err) {
-                console.warn(`Auto-redeem failed for ${cdkey}`, err);
+              const res = await callRedeemApi(cdkey, config, controller.signal);
+              if (res.expired) {
+                controller.abort();
+                Swal.fire({ icon: 'error', title: 'Master URL hết hạn', text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!' });
+                setIsSyncing(false);
+                saveToLocal(newHistoryEntries);
+                return;
               }
+              actualStatus = res.status;
+              actualMsg = res.message;
               await new Promise(r => setTimeout(r, 300));
             }
+
+            if (controller.signal.aborted) break;
 
             syncSummary.push({ cdkey, status: actualStatus, msg: actualMsg });
             newHistoryEntries.push({
@@ -326,24 +381,12 @@ export const useRedeem = () => {
       }
 
       saveToLocal(newHistoryEntries);
-
-      if (addedCount === 0) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Cập nhật',
-          text: 'Không có mã mới nào từ server!',
-          timer: 2000,
-          showConfirmButton: false
-        });
-        return;
+      if (addedCount > 0) {
+        showSummaryAlert(syncSummary, { title: 'Kết quả đồng bộ' });
+      } else {
+        Swal.fire({ icon: 'info', title: 'Cập nhật', text: 'Không có mã mới nào từ server!', timer: 2000, showConfirmButton: false });
       }
-
-      showSummaryAlert(syncSummary, {
-        title: 'Kết quả đồng bộ',
-        successTitle: 'Thành công',
-        successText: `Đã đồng bộ xong! Hệ thống đã nạp thêm ${addedCount} mã mới.`
-      });
-    } catch (e) {
+    } catch (e: any) {
       console.error("Sync error", e);
       Swal.fire({
         icon: 'error',
@@ -361,15 +404,9 @@ export const useRedeem = () => {
 
     const uniqueCodes = parseInputCodes(inputValue);
     const codesToRun = uniqueCodes.filter(c => !history.some(h => h.cdkey.toUpperCase() === c.toUpperCase()));
+    const skippedCodes = uniqueCodes.filter(c => history.some(h => h.cdkey.toUpperCase() === c.toUpperCase()));
 
-    if (codesToRun.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Thông báo',
-        text: 'Tất cả mã đã được nhập hoặc đã có trong lịch sử!',
-      });
-      return;
-    }
+    if (codesToRun.length === 0 && skippedCodes.length === 0) return;
 
     const config = getParams(masterUrl);
     if (!config.openid) {
@@ -381,80 +418,47 @@ export const useRedeem = () => {
       return;
     }
 
+    // Create new controller for this batch
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setIsSyncing(true);
-      let currentHistory = [...history];
-      const summary: { cdkey: string, msg: string, status: 'success' | 'failure' }[] = [];
+      const newEntries: RedeemHistory[] = [];
+      const summary: { cdkey: string, msg: string, status: 'success' | 'failure' | 'skipped' }[] = [];
 
       for (let i = 0; i < codesToRun.length; i++) {
+        if (controller.signal.aborted) break;
+
         const cdkey = codesToRun[i];
         const safeKey = escapeFirebaseKey(cdkey);
         const nowTs = Math.floor(Date.now() / 1000);
 
-        try {
-          const workerUrl = import.meta.env.VITE_WORKER_URL;
-          const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-          const response = await fetch(targetUrl, {
-            method: "POST",
-            headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-            body: JSON.stringify({
-              masterUrl,
-              cdkey,
-              lang_type: config.lang_type,
-              role_info: { game_id: config.game_id }
-            })
-          });
-
-          // Allow reading JSON even if response is not ok (for 4xx mappings from proxy)
-          const result = await response.json().catch(() => ({
-            code: response.status === 200 ? 0 : -1,
-            msg: `Proxy/HTTP ${response.status} (Internal Error)`
-          }));
-
-          if (Number(result.code) === 300001) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Master URL hết hạn',
-              text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!',
-            });
-            saveToLocal(currentHistory);
-            setIsSyncing(false);
-            return; // Stop entire batch
-          }
-
-          const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
-          const displayMsg = result.msg || result.message || (statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`);
-
-          const newItem: RedeemHistory = {
-            id: `local-${safeKey}-${nowTs}`,
-            cdkey,
-            status: statusDigit === 0 ? 'success' : 'failure',
-            message: displayMsg,
-            timestamp: nowTs * 1000
-          };
-
-          currentHistory = [newItem, ...currentHistory];
-          setHistory([...currentHistory].sort((a, b) => b.timestamp - a.timestamp));
-
-          summary.push({ cdkey, msg: displayMsg, status: newItem.status });
-
-        } catch (err: any) {
-          console.error(`Error with code ${cdkey}:`, err);
-          summary.push({ cdkey, msg: err.message || "Network Error", status: 'failure' });
+        const res = await callRedeemApi(cdkey, config, controller.signal);
+        if (res.expired) {
+          controller.abort();
+          Swal.fire({ icon: 'error', title: 'Master URL hết hạn', text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!' });
+          saveToLocal([...newEntries, ...history]);
+          setIsSyncing(false);
+          return;
         }
 
-        if (i < codesToRun.length - 1) {
+        const newItem: RedeemHistory = { id: `local-${safeKey}-${nowTs}`, cdkey, status: res.status, message: res.message, timestamp: nowTs * 1000 };
+        newEntries.unshift(newItem);
+        summary.push({ cdkey, msg: res.message, status: res.status });
+
+        if (i < codesToRun.length - 1 && !controller.signal.aborted) {
           await new Promise(r => setTimeout(r, 300));
         }
       }
 
-      saveToLocal(currentHistory);
-
-      showSummaryAlert(summary, {
-        title: 'Kết quả nạp mã',
-        successTitle: 'Thành công',
-        successText: `Đã nạp thành công tất cả ${summary.length} mã!`
+      // Add skipped codes to summary
+      skippedCodes.forEach(c => {
+        summary.push({ cdkey: c, msg: 'Đã nạp code này', status: 'skipped' });
       });
+
+      saveToLocal([...newEntries, ...history]);
+      showSummaryAlert(summary, { title: 'Kết quả nạp mã' });
     } catch (e: any) {
       console.error("Batch redeem failed", e);
       Swal.fire({
@@ -489,6 +493,7 @@ export const useRedeem = () => {
     saveMasterUrl,
     handleSync,
     handleRedeem,
-    handleDeleteHistory
+    handleDeleteHistory,
+    handleClearAll
   };
 };

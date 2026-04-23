@@ -71,4 +71,4 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
   );
 };
 
-export default RedeemInput;
+export default React.memo(RedeemInput);

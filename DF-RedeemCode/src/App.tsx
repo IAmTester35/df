@@ -20,7 +20,8 @@ const App = () => {
     saveMasterUrl,
     handleSync,
     handleRedeem,
-    handleDeleteHistory
+    handleDeleteHistory,
+    handleClearAll
   } = useRedeem();
 
   return (
@@ -38,6 +39,7 @@ const App = () => {
           showSettings={showSettings} 
           masterUrl={masterUrl} 
           saveMasterUrl={saveMasterUrl} 
+          handleClearAll={handleClearAll}
         />
 
         <RedeemInput 

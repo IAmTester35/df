@@ -8,12 +8,14 @@ interface SettingsPanelProps {
   showSettings: boolean;
   masterUrl: string;
   saveMasterUrl: (url: string) => void;
+  handleClearAll: () => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   showSettings,
   masterUrl,
-  saveMasterUrl
+  saveMasterUrl,
+  handleClearAll
 }) => {
   return (
     <AnimatePresence>
@@ -45,6 +47,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   Khôi phục mặc định
                 </button>
               </div>
+              <div className="pt-4 border-t border-white/5 flex justify-end">
+                <button
+                  onClick={handleClearAll}
+                  className="cursor-pointer px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-lg transition-colors border border-red-500/20"
+                >
+                  Xoá toàn bộ dữ liệu cục bộ
+                </button>
+              </div>
             </div>
           </div>
         </motion.section>
@@ -53,4 +63,4 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   );
 };
 
-export default SettingsPanel;
+export default React.memo(SettingsPanel);

@@ -86,4 +86,4 @@ const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history, onDele
   );
 };
 
-export default RedeemHistoryTable;
+export default React.memo(RedeemHistoryTable);
