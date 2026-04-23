@@ -141,7 +141,7 @@ export const useRedeem = () => {
             }
           } else {
             const initialMeta: UserMeta = { lastSync: 0, masterUrl };
-            await update(userRef, initialMeta as any);
+            await update(userRef, initialMeta as unknown as Record<string, unknown>);
             setUserMeta(initialMeta);
           }
         } catch (e) {
@@ -152,7 +152,7 @@ export const useRedeem = () => {
       }
     });
     return unsubscribeAuth;
-  }, []);
+  }, [masterUrl]);
 
   // DB listener
   useEffect(() => {
@@ -222,7 +222,7 @@ export const useRedeem = () => {
     });
   }, []);
 
-  const callRedeemApi = useCallback(async (cdkey: string, config: any, signal: AbortSignal) => {
+  const callRedeemApi = useCallback(async (cdkey: string, config: Record<string, unknown>, signal: AbortSignal) => {
     try {
       const workerUrl = import.meta.env.VITE_WORKER_URL;
       const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
@@ -250,14 +250,10 @@ export const useRedeem = () => {
       const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
       const displayMsg = result.msg || result.message || (statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`);
 
-      return {
-        expired: false,
-        status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure',
-        message: displayMsg
-      };
-    } catch (err: any) {
-      if (err.name === 'AbortError') throw err;
-      return { expired: false, status: 'failure' as const, message: err.message || "Network Error" };
+      return { expired: false, status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure', message: displayMsg };
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') throw err;
+      return { expired: false, status: 'failure' as const, message: err instanceof Error ? err.message : "Network Error" };
     }
   }, [masterUrl]);
 
@@ -386,7 +382,7 @@ export const useRedeem = () => {
       } else {
         Swal.fire({ icon: 'info', title: 'Cập nhật', text: 'Không có mã mới nào từ server!', timer: 2000, showConfirmButton: false });
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("Sync error", e);
       Swal.fire({
         icon: 'error',
@@ -397,7 +393,7 @@ export const useRedeem = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user]);
+  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user, callRedeemApi]);
 
   const handleRedeem = useCallback(async () => {
     if (!inputValue.trim()) return;
@@ -459,7 +455,7 @@ export const useRedeem = () => {
 
       saveToLocal([...newEntries, ...history]);
       showSummaryAlert(summary, { title: 'Kết quả nạp mã' });
-    } catch (e: any) {
+    } catch (e) {
       console.error("Batch redeem failed", e);
       Swal.fire({
         icon: 'error',
@@ -470,7 +466,7 @@ export const useRedeem = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [history, inputValue, masterUrl, saveToLocal]);
+  }, [history, inputValue, masterUrl, saveToLocal, callRedeemApi]);
 
   const handleDeleteHistory = useCallback((id: string) => {
     const newHistory = history.filter(h => h.id !== id);

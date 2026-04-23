@@ -1,6 +1,8 @@
 import React from "react";
-import { Zap, RefreshCw } from "lucide-react";
+import { Zap, RefreshCw, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
+import Swal from "sweetalert2";
+import type { RedeemHistory } from "../hooks/useRedeem";
 
 interface RedeemInputProps {
   inputValue: string;
@@ -9,6 +11,7 @@ interface RedeemInputProps {
   hasNewCodes: boolean;
   handleSync: () => void;
   handleRedeem: () => void;
+  history: RedeemHistory[];
 }
 
 const RedeemInput: React.FC<RedeemInputProps> = ({ 
@@ -17,8 +20,30 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
   isSyncing, 
   hasNewCodes, 
   handleSync, 
-  handleRedeem 
+  handleRedeem,
+  history
 }) => {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const overlayRef = React.useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    if (textareaRef.current && overlayRef.current) {
+      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  };
+
+  const showWarning = (cdkey: string) => {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Mã đã tồn tại',
+      text: `Mã "${cdkey}" đã có trong lịch sử nạp của bạn.`,
+      confirmButtonText: 'Đã hiểu',
+      confirmButtonColor: '#3b82f6'
+    });
+  };
+
+  const lines = inputValue.split('\n');
+  const historyCodes = new Set(history.map(h => h.cdkey.toUpperCase()));
   return (
     <section className="flex justify-center">
       <motion.div 
@@ -33,12 +58,49 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
         <div className={`flex flex-col gap-3 p-4 bg-white/5 backdrop-blur-[6px] rounded-2xl border transition-colors ${
           hasNewCodes ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'
         }`}>
-          <textarea 
-            value={inputValue} 
-            onChange={(e) => setInputValue(e.target.value)} 
-            placeholder="Dán danh sách mã vào đây (Mỗi mã 1 dòng)..." 
-            className="w-full bg-transparent px-2 py-2 outline-none font-mono text-sm text-white min-h-[120px] resize-y" 
-          />
+          <div className="relative w-full min-h-[120px] font-mono text-sm group">
+            {/* Hidden Textarea for Input - Always on bottom but receives focus */}
+            <textarea 
+              ref={textareaRef}
+              value={inputValue} 
+              onScroll={handleScroll}
+              onChange={(e) => setInputValue(e.target.value)} 
+              placeholder="Dán danh sách mã vào đây (Mỗi mã 1 dòng)..." 
+              className="w-full bg-transparent px-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[120px] resize-y block focus:ring-0 relative z-0" 
+            />
+
+            {/* Rich Text Overlay - Always on top but passes through most events */}
+            <div 
+              ref={overlayRef}
+              className="absolute inset-0 px-2 py-2 pointer-events-none overflow-hidden whitespace-pre-wrap break-all z-10"
+              aria-hidden="true"
+            >
+              {lines.map((line, i) => {
+                const trimmed = line.trim();
+                const isDuplicate = trimmed !== "" && historyCodes.has(trimmed.toUpperCase());
+                
+                return (
+                  <div key={i} className="min-h-5 flex items-center gap-1.5 leading-5">
+                    {isDuplicate && (
+                      <button
+                        onClick={() => showWarning(trimmed)}
+                        className="pointer-events-auto text-red-500 hover:text-red-400 transition-colors shrink-0"
+                        title="Mã này đã có trong lịch sử"
+                      >
+                        <AlertCircle size={14} />
+                      </button>
+                    )}
+                    <span className={isDuplicate 
+                      ? "underline decoration-red-500/80 decoration-wavy underline-offset-4 text-red-400/90" 
+                      : "text-white/90"
+                    }>
+                      {line || " "}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-white/5">
             <div className="flex-1 flex items-center px-2">
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">

@@ -2,7 +2,7 @@ export const getParams = (urlStr: string) => {
   try {
     const url = new URL(urlStr);
     return Object.fromEntries(url.searchParams.entries());
-  } catch (e) {
+  } catch {
     return {};
   }
 };
@@ -35,7 +35,7 @@ export const parseInputCodes = (input: string) => {
     for (const line of rawLines) {
         // Step 1: Clean special chars and trim, then split by whitespace/tabs like index.js
         const cleaned = line
-            .replace(/["\u200b\u200c\u200d\uFEFF]/g, '')
+            .replace(/["]|[\u200b]|[\u200c]|[\u200d]|[\uFEFF]/g, '')
             .trim()
             .split(/[\s\t]+/)[0];
 
@@ -50,7 +50,7 @@ export const parseInputCodes = (input: string) => {
     return cleanedCodes;
 };
 
-export const processSyncData = (data: Record<string, any>, localKeys: Set<string>) => {
+export const processSyncData = (data: Record<string, unknown>, localKeys: Set<string>) => {
     const entries = Object.entries(data);
     return entries.map(([safeKey, val]) => {
         const value = Number(val);

@@ -49,6 +49,7 @@ const App = () => {
           hasNewCodes={hasNewCodes} 
           handleSync={handleSync} 
           handleRedeem={handleRedeem} 
+          history={history}
         />
 
         <RedeemHistoryTable history={history} onDelete={handleDeleteHistory} />

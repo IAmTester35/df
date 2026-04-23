@@ -1,7 +1,6 @@
 import React from "react";
 import { Database, CheckCircle2, XCircle, Cloud, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import Swal from "sweetalert2";
 import type { RedeemHistory } from "../hooks/useRedeem";
 
 interface RedeemHistoryTableProps {

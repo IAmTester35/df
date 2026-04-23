@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 
 // 1. Browser APIs
 window.alert = vi.fn();
-(window as any).fetch = vi.fn();
+(window as unknown as { fetch: typeof window.fetch }).fetch = vi.fn();
 
 const localStorageMock = (function () {
   let store: Record<string, string> = {};
@@ -32,7 +32,7 @@ vi.mock('firebase/database', () => ({
   ref: vi.fn(),
   onValue: vi.fn((_query, cb) => {
     setTimeout(() => cb({ 
-      forEach: (iter: any) => iter({ key: 'code', val: () => 100 }) 
+      forEach: (iter: (child: { key: string; val: () => number }) => void) => iter({ key: 'code', val: () => 100 }) 
     }), 0);
     return vi.fn(); 
   }),
