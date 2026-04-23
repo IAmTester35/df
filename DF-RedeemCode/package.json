@@ -42,5 +42,15 @@
     "typescript-eslint": "^8.57.0",
     "vite": "^8.0.1",
     "vitest": "^4.1.1"
+  },
+  "author": "IAmTester35 <maithanhnam141@gmail.com> (https://github.com/IAmTester35)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/IAmTester35/df/issues"
+  },
+  "homepage": "https://github.com/IAmTester35/df#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IAmTester35/df.git"
   }
 }
