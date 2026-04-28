@@ -66,13 +66,13 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
               onScroll={handleScroll}
               onChange={(e) => setInputValue(e.target.value)} 
               placeholder="Dán danh sách mã vào đây (Mỗi mã 1 dòng)..." 
-              className="w-full bg-transparent px-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[120px] resize-y block focus:ring-0 relative z-0" 
+              className="w-full bg-transparent pl-9 pr-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[120px] resize-y block focus:ring-0 relative z-0 break-all text-left" 
             />
 
             {/* Rich Text Overlay - Always on top but passes through most events */}
             <div 
               ref={overlayRef}
-              className="absolute inset-0 px-2 py-2 pointer-events-none overflow-hidden whitespace-pre-wrap break-all z-10"
+              className="absolute inset-0 pl-9 pr-2 py-2 pointer-events-none overflow-hidden whitespace-pre-wrap break-all z-10 text-left"
               aria-hidden="true"
             >
               {lines.map((line, i) => {
@@ -80,11 +80,11 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
                 const isDuplicate = trimmed !== "" && historyCodes.has(trimmed.toUpperCase());
                 
                 return (
-                  <div key={i} className="min-h-5 flex items-center gap-1.5 leading-5">
+                  <div key={i} className="min-h-5 relative leading-5">
                     {isDuplicate && (
                       <button
                         onClick={() => showWarning(trimmed)}
-                        className="pointer-events-auto text-red-500 hover:text-red-400 transition-colors shrink-0"
+                        className="pointer-events-auto text-red-500 hover:text-red-400 transition-colors absolute -left-7 top-1/2 -translate-y-1/2"
                         title="Mã này đã có trong lịch sử"
                       >
                         <AlertCircle size={14} />
