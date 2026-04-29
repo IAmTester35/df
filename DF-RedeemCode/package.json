@@ -18,7 +18,8 @@
     "motion": "^12.38.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "sweetalert2": "^11.26.24"
+    "sweetalert2": "^11.26.24",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

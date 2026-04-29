@@ -2,11 +2,12 @@ import React from "react";
 import { Zap, RefreshCw, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 import Swal from "sweetalert2";
+import Tesseract from 'tesseract.js';
 import type { RedeemHistory } from "../hooks/useRedeem";
 
 interface RedeemInputProps {
   inputValue: string;
-  setInputValue: (value: string) => void;
+  setInputValue: React.Dispatch<React.SetStateAction<string>>;
   isSyncing: boolean;
   hasNewCodes: boolean;
   handleSync: () => void;
@@ -23,6 +24,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
   handleRedeem,
   history
 }) => {
+  const [isExtracting, setIsExtracting] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const overlayRef = React.useRef<HTMLDivElement>(null);
 
@@ -42,6 +44,49 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
     });
   };
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    let imageBlob: Blob | null = null;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        imageBlob = items[i].getAsFile();
+        break;
+      }
+    }
+
+    if (!imageBlob) return;
+    e.preventDefault();
+
+    try {
+      setIsExtracting(true);
+      // Tesseract.js (v5+) requires worker for custom parameters
+      const worker = await Tesseract.createWorker('eng');
+      await worker.setParameters({
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\n '
+      });
+      
+      const { data: { text: tesseractText } } = await worker.recognize(imageBlob);
+      await worker.terminate();
+
+      const finalText = tesseractText?.trim();
+
+      if (finalText) {
+        const cleaned = finalText.split('\n').map((l: string) => l.trim()).filter(Boolean).join('\n');
+        setInputValue(prev => prev ? `${prev}\n${cleaned}` : cleaned);
+      }
+    } catch (error: any) {
+      console.error("OCR Error:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Lỗi trích xuất',
+        text: error.message || 'Có lỗi xảy ra.'
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   const lines = inputValue.split('\n');
   const historyCodes = new Set(history.map(h => h.cdkey.toUpperCase()));
   return (
@@ -49,24 +94,31 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
-        className="nordic-card w-full max-w-2xl text-center space-y-6"
+        className="nordic-card w-full max-w-4xl text-center space-y-6"
       >
-        <div className="space-y-2">
+        <div className="space-y-2 relative">
           <h2 className="text-3xl font-bold text-white">Nhập hàng loạt mã</h2>
-          <p className="text-slate-400 text-sm">Mỗi dòng 1 mã CDKey. Hệ thống tự động lọc trùng và delay 300ms.</p>
+          <p className="text-slate-400 text-sm">Mỗi dòng 1 mã CDKey. Hỗ trợ <b>Paste ảnh</b> để tự động nhận diện chữ.</p>
+          {isExtracting && (
+            <div className="absolute right-0 top-0 flex items-center gap-2 text-blue-400 text-xs font-medium bg-blue-500/10 px-2 py-1 rounded-full border border-blue-500/20 animate-pulse">
+              <RefreshCw size={12} className="animate-spin" />
+              <span>Đang trích xuất ảnh...</span>
+            </div>
+          )}
         </div>
         <div className={`flex flex-col gap-3 p-4 bg-white/5 backdrop-blur-[6px] rounded-2xl border transition-colors ${
           hasNewCodes ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'
         }`}>
-          <div className="relative w-full min-h-[120px] font-mono text-sm group">
+          <div className="relative w-full min-h-[240px] font-mono text-sm group">
             {/* Hidden Textarea for Input - Always on bottom but receives focus */}
             <textarea 
               ref={textareaRef}
               value={inputValue} 
               onScroll={handleScroll}
+              onPaste={handlePaste}
               onChange={(e) => setInputValue(e.target.value)} 
-              placeholder="Dán danh sách mã vào đây (Mỗi mã 1 dòng)..." 
-              className="w-full bg-transparent pl-9 pr-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[120px] resize-y block focus:ring-0 relative z-0 break-all text-left" 
+              placeholder="Dán danh sách mã hoặc ảnh chứa mã vào đây..." 
+              className="w-full bg-transparent pl-9 pr-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[240px] resize-y block focus:ring-0 relative z-0 break-all text-left" 
             />
 
             {/* Rich Text Overlay - Always on top but passes through most events */}
