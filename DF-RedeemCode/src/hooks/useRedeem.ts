@@ -49,7 +49,7 @@ const showSummaryAlert = (
   }
 ) => {
   let html = '<div style="text-align: left; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85em; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 8px; border: 1px solid rgba(0,0,0,0.05);">';
-  
+
   results.forEach(r => {
     if (r.status === 'success') {
       html += `<div style="color: #10b981; margin-bottom: 4px;">✅ ${r.cdkey}</div>`;
@@ -70,6 +70,47 @@ const showSummaryAlert = (
     confirmButtonText: 'Đã hiểu',
     customClass: {
       htmlContainer: 'text-left'
+    }
+  });
+};
+
+const showInstructions = () => {
+  const isMac = /Mac|iPhone|iPod|iPad/.test(navigator.userAgent);
+  const shortcut = isMac ? "Cmd + Opt + I" : "F12 hoặc Ctrl + Shift + I";
+
+  Swal.fire({
+    title: 'Hướng dẫn lấy Master URL',
+    html: `
+      <div style="text-align: left; font-size: 0.9em; line-height: 1.5;">
+        <ol style="padding-left: 20px;">
+          <li style="margin-bottom: 8px;">1. Truy cập <a href="https://redeem.df.garena.sg/vi/cdkgarena.html" target="_blank" style="color: #3b82f6; text-decoration: underline;">trang nạp code Garena</a></li>
+          <li style="margin-bottom: 8px;">2. Đăng nhập tài khoản Garena của bạn</li>
+          <li style="margin-bottom: 8px;">3. Nhấn <b>${shortcut}</b> để mở DevTools, chọn tab <b>Network</b></li>
+          <li style="margin-bottom: 8px;">4. Nhập đại 1 mã (VD: <code>123</code>) rồi nhấn nút <b>"Đổi"</b></li>
+          <li style="margin-bottom: 8px;">5. Trong tab Network, tìm request có chứa <code>cdkey=123</code></li>
+          <li style="margin-bottom: 8px;">6. Chuột phải vào request đó chọn <b>Copy</b> &gt; <b>Copy link address</b></li>
+          <li style="margin-bottom: 8px;">7. Quay lại đây, nhấn vào <b>Setting</b> (biểu tượng bánh răng)</li>
+          <li style="margin-bottom: 8px;">8. Dán URL vừa copy vào ô <b>Master URL</b></li>
+        </ol>
+      </div>
+    `,
+    confirmButtonText: 'Đã hiểu',
+    width: '1000px'
+  });
+};
+
+const showExpiredAlert = () => {
+  Swal.fire({
+    icon: 'error',
+    title: 'Master URL hết hạn',
+    text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!',
+    showCancelButton: true,
+    confirmButtonText: 'Làm mới',
+    cancelButtonText: 'Đóng',
+    confirmButtonColor: '#3b82f6',
+  }).then((result) => {
+    if (result.isConfirmed) {
+      showInstructions();
     }
   });
 };
@@ -341,7 +382,7 @@ export const useRedeem = () => {
               const res = await callRedeemApi(cdkey, config, controller.signal);
               if (res.expired) {
                 controller.abort();
-                Swal.fire({ icon: 'error', title: 'Master URL hết hạn', text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!' });
+                showExpiredAlert();
                 setIsSyncing(false);
                 saveToLocal(newHistoryEntries);
                 return;
@@ -433,7 +474,7 @@ export const useRedeem = () => {
         const res = await callRedeemApi(cdkey, config, controller.signal);
         if (res.expired) {
           controller.abort();
-          Swal.fire({ icon: 'error', title: 'Master URL hết hạn', text: 'Master URL đã hết hạn, vui lòng cập nhật URL mới!' });
+          showExpiredAlert();
           saveToLocal([...newEntries, ...history]);
           setIsSyncing(false);
           return;
