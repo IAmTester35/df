@@ -99,7 +99,7 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => onDelete(item.id)}
-                          className={`p-2 transition-colors ${variant === 'amber' ? 'text-amber-400/50 hover:text-red-400' : 'text-slate-500 hover:text-red-400'}`}
+                          className={`cursor-pointer p-2 transition-colors ${variant === 'amber' ? 'text-amber-400/50 hover:text-red-400' : 'text-slate-500 hover:text-red-400'}`}
                           title="Xoá"
                         >
                           <Trash2 size={16} />
