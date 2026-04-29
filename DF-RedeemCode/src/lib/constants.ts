@@ -2,3 +2,4 @@ export const DEFAULT_MASTER_URL = "https://sg-act.playerinfinite.com/api/proxy/p
 export const LOCAL_MASTER_URL_KEY = 'df_master_url';
 export const LOCAL_STORAGE_KEY = 'df_history';
 export const LOCAL_SYNC_TIME_KEY = 'df_last_sync';
+export const LOCAL_PENDING_KEY = 'df_pending';

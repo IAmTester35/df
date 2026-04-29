@@ -17,7 +17,8 @@ import {
   DEFAULT_MASTER_URL,
   LOCAL_MASTER_URL_KEY,
   LOCAL_STORAGE_KEY,
-  LOCAL_SYNC_TIME_KEY
+  LOCAL_SYNC_TIME_KEY,
+  LOCAL_PENDING_KEY
 } from "../lib/constants";
 import {
   getParams,
@@ -120,6 +121,7 @@ export const useRedeem = () => {
   const [userMeta, setUserMeta] = useState<UserMeta>({ lastSync: 0 });
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<RedeemHistory[]>([]);
+  const [pending, setPending] = useState<RedeemHistory[]>([]);
   const [hasNewCodes, setHasNewCodes] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [masterUrl, setMasterUrl] = useState(DEFAULT_MASTER_URL);
@@ -158,6 +160,9 @@ export const useRedeem = () => {
 
       const storedUrl = localStorage.getItem(LOCAL_MASTER_URL_KEY);
       if (storedUrl) setMasterUrl(storedUrl);
+
+      const storedPending = localStorage.getItem(LOCAL_PENDING_KEY);
+      if (storedPending) setPending(JSON.parse(storedPending));
     } catch (e) {
       console.error("Local load error", e);
     }
@@ -263,48 +268,66 @@ export const useRedeem = () => {
     });
   }, []);
 
-  const callRedeemApi = useCallback(async (cdkey: string, config: Record<string, unknown>, signal: AbortSignal) => {
+  const callRedeemBatch = useCallback(async (cdkeys: string[], config: Record<string, unknown>, signal: AbortSignal) => {
     try {
       const workerUrl = import.meta.env.VITE_WORKER_URL;
-      const targetUrl = workerUrl || masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
-      const response = await fetch(targetUrl, {
+      if (!workerUrl) throw new Error("VITE_WORKER_URL is not configured");
+
+      const response = await fetch(workerUrl, {
         method: "POST",
         headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
         signal,
         body: JSON.stringify({
           masterUrl,
-          cdkey,
+          cdkeys,
           lang_type: config.lang_type,
           role_info: { game_id: config.game_id }
         })
       });
 
-      const result = await response.json().catch(() => ({
-        code: response.status === 200 ? 0 : -1,
-        msg: `Proxy/HTTP ${response.status} (Internal Error)`
-      }));
-
-      if (Number(result.code) === 300001) {
-        return { expired: true, status: 'failure' as const, message: 'Expired' };
+      const data = await response.json();
+      if (!data.codes) {
+        throw new Error(data.message || "Invalid batch response from proxy");
       }
 
-      const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
-      const displayMsg = result.msg || result.message || (statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`);
+      return data.codes.map((item: any) => {
+        const result = item.original;
+        const expired = Number(result.code) === 300001;
+        const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
 
-      return { expired: false, status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure', message: displayMsg };
+        let displayMsg = result.msg || result.message;
+        if (result.code === -2) {
+          displayMsg = `Garena Server Error: ${displayMsg}`;
+        } else if (!displayMsg) {
+          displayMsg = statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`;
+        }
+
+        return {
+          cdkey: item.cdkey,
+          expired,
+          isServerError: result.code === -2,
+          status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure',
+          message: displayMsg
+        };
+      });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') throw err;
-      return { expired: false, status: 'failure' as const, message: err instanceof Error ? err.message : "Network Error" };
+      throw err;
     }
   }, [masterUrl]);
 
-  const saveToLocal = useCallback((newHistory: RedeemHistory[]) => {
+  const saveToLocal = useCallback((newHistory: RedeemHistory[], newPending?: RedeemHistory[]) => {
     const maxTs = Math.max(0, ...newHistory.map(h => Math.floor(h.timestamp / 1000)));
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newHistory));
     localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTs.toString());
     setHistory(newHistory.sort((a, b) => b.timestamp - a.timestamp));
     setUserMeta(prev => ({ ...prev, lastSync: maxTs }));
     setHasNewCodes(false);
+
+    if (newPending) {
+      setPending(newPending);
+      localStorage.setItem(LOCAL_PENDING_KEY, JSON.stringify(newPending));
+    }
 
     if (user && !user.isAnonymous) {
       update(ref(db, `u/${user.uid}`), { lastSync: maxTs, s: null });
@@ -361,50 +384,63 @@ export const useRedeem = () => {
       let maxTsInBatch = userMeta.lastSync;
 
       const syncSummary: { cdkey: string; status: 'success' | 'failure'; msg: string }[] = [];
+      const codesToRedeem: string[] = [];
+      const codeMetadata: Record<string, { ts: number, safeKey: string }> = {};
 
       for (const [safeKey, val] of entries) {
-        if (controller.signal.aborted) break;
-
         const value = val as number;
         const ts = Math.floor(value / 10);
         const statusDigit = value % 10;
         const cdkey = unescapeFirebaseKey(safeKey);
-
-        if (ts > maxTsInBatch) maxTsInBatch = ts;
         const upperCdKey = cdkey.toUpperCase();
 
-        if (!localKeys.has(upperCdKey)) {
-          if (statusDigit === 0 || statusDigit === 1) {
-            let actualMsg = statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)';
-            let actualStatus: 'success' | 'failure' = 'success';
+        if (ts > maxTsInBatch) maxTsInBatch = ts;
 
-            if (config.openid) {
-              const res = await callRedeemApi(cdkey, config, controller.signal);
-              if (res.expired) {
-                controller.abort();
-                showExpiredAlert();
-                setIsSyncing(false);
-                saveToLocal(newHistoryEntries);
-                return;
-              }
-              actualStatus = res.status;
-              actualMsg = res.message;
-              await new Promise(r => setTimeout(r, 300));
-            }
-
-            if (controller.signal.aborted) break;
-
-            syncSummary.push({ cdkey, status: actualStatus, msg: actualMsg });
+        if (!localKeys.has(upperCdKey) && (statusDigit === 0 || statusDigit === 1)) {
+          if (config.openid) {
+            codesToRedeem.push(cdkey);
+            codeMetadata[cdkey] = { ts, safeKey };
+          } else {
+            // No config, just add to history
             newHistoryEntries.push({
               id: `v-${safeKey}`,
               cdkey,
-              status: actualStatus,
-              message: actualMsg,
+              status: 'success',
+              message: statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)',
               timestamp: ts * 1000
             });
             localKeys.add(upperCdKey);
             addedCount++;
           }
+        }
+      }
+
+      let batchResults: any[] = [];
+      if (codesToRedeem.length > 0) {
+        batchResults = await callRedeemBatch(codesToRedeem, config, controller.signal);
+        for (const res of batchResults) {
+          if (res.expired) {
+            showExpiredAlert();
+            saveToLocal(newHistoryEntries);
+            setIsSyncing(false);
+            return;
+          }
+
+          const meta = codeMetadata[res.cdkey];
+          if (res.isServerError) {
+            syncSummary.push({ cdkey: res.cdkey, status: 'failure', msg: res.message });
+            continue; // Don't save to history if it's a server error
+          }
+          
+          syncSummary.push({ cdkey: res.cdkey, status: res.status, msg: res.message });
+          newHistoryEntries.push({
+            id: `v-${meta.safeKey}`,
+            cdkey: res.cdkey,
+            status: res.status,
+            message: res.message,
+            timestamp: meta.ts * 1000
+          });
+          addedCount++;
         }
       }
 
@@ -417,7 +453,21 @@ export const useRedeem = () => {
         }
       }
 
-      saveToLocal(newHistoryEntries);
+      // Collect pending from sync results
+      const newPending = [...pending];
+      batchResults.forEach((res: any) => {
+        if (res.isServerError && !newPending.some(p => p.cdkey === res.cdkey)) {
+          newPending.push({
+            id: `p-${res.cdkey}-${Date.now()}`,
+            cdkey: res.cdkey,
+            status: 'failure',
+            message: res.message,
+            timestamp: Date.now()
+          });
+        }
+      });
+
+      saveToLocal(newHistoryEntries, newPending);
       if (addedCount > 0) {
         showSummaryAlert(syncSummary, { title: 'Kết quả đồng bộ' });
       } else {
@@ -434,7 +484,7 @@ export const useRedeem = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user, callRedeemApi]);
+  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user, callRedeemBatch]);
 
   const handleRedeem = useCallback(async () => {
     if (!inputValue.trim()) return;
@@ -464,28 +514,42 @@ export const useRedeem = () => {
       const newEntries: RedeemHistory[] = [];
       const summary: { cdkey: string, msg: string, status: 'success' | 'failure' | 'skipped' }[] = [];
 
-      for (let i = 0; i < codesToRun.length; i++) {
-        if (controller.signal.aborted) break;
-
-        const cdkey = codesToRun[i];
-        const safeKey = escapeFirebaseKey(cdkey);
+      let batchResults: any[] = [];
+      if (codesToRun.length > 0) {
+        batchResults = await callRedeemBatch(codesToRun, config, controller.signal);
         const nowTs = Math.floor(Date.now() / 1000);
+        const serverErrorCodes: string[] = [];
 
-        const res = await callRedeemApi(cdkey, config, controller.signal);
-        if (res.expired) {
-          controller.abort();
-          showExpiredAlert();
-          saveToLocal([...newEntries, ...history]);
-          setIsSyncing(false);
-          return;
+        for (const res of batchResults) {
+          if (res.expired) {
+            showExpiredAlert();
+            saveToLocal([...newEntries, ...history]);
+            setIsSyncing(false);
+            return;
+          }
+
+          if (res.isServerError) {
+            serverErrorCodes.push(res.cdkey);
+            summary.push({ cdkey: res.cdkey, msg: res.message, status: 'failure' });
+            continue; // Skip saving to history
+          }
+
+          const newItem: RedeemHistory = {
+            id: `local-${escapeFirebaseKey(res.cdkey)}-${nowTs}`,
+            cdkey: res.cdkey,
+            status: res.status,
+            message: res.message,
+            timestamp: nowTs * 1000
+          };
+          newEntries.unshift(newItem);
+          summary.push({ cdkey: res.cdkey, msg: res.message, status: res.status });
         }
 
-        const newItem: RedeemHistory = { id: `local-${safeKey}-${nowTs}`, cdkey, status: res.status, message: res.message, timestamp: nowTs * 1000 };
-        newEntries.unshift(newItem);
-        summary.push({ cdkey, msg: res.message, status: res.status });
-
-        if (i < codesToRun.length - 1 && !controller.signal.aborted) {
-          await new Promise(r => setTimeout(r, 300));
+        // Keep server errors in input for retry
+        if (serverErrorCodes.length > 0) {
+          setInputValue(serverErrorCodes.join("\n"));
+        } else {
+          setInputValue("");
         }
       }
 
@@ -494,7 +558,23 @@ export const useRedeem = () => {
         summary.push({ cdkey: c, msg: 'Đã nạp code này', status: 'skipped' });
       });
 
-      saveToLocal([...newEntries, ...history]);
+      // Collect pending from redeem results
+      const newPending = [...pending];
+      if (codesToRun.length > 0) {
+        for (const res of batchResults) {
+          if (res.isServerError && !newPending.some(p => p.cdkey === res.cdkey)) {
+            newPending.push({
+              id: `p-${res.cdkey}-${Date.now()}`,
+              cdkey: res.cdkey,
+              status: 'failure',
+              message: res.message,
+              timestamp: Date.now()
+            });
+          }
+        }
+      }
+
+      saveToLocal([...newEntries, ...history], newPending);
       showSummaryAlert(summary, { title: 'Kết quả nạp mã' });
     } catch (e) {
       console.error("Batch redeem failed", e);
@@ -507,12 +587,34 @@ export const useRedeem = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [history, inputValue, masterUrl, saveToLocal, callRedeemApi]);
+  }, [history, inputValue, masterUrl, saveToLocal, callRedeemBatch]);
 
   const handleDeleteHistory = useCallback((id: string) => {
     const newHistory = history.filter(h => h.id !== id);
     saveToLocal(newHistory);
   }, [history, saveToLocal]);
+
+  const handleDeletePending = useCallback((id: string) => {
+    const newPending = pending.filter(h => h.id !== id);
+    setPending(newPending);
+    localStorage.setItem(LOCAL_PENDING_KEY, JSON.stringify(newPending));
+  }, [pending]);
+
+  const handleRetryPending = useCallback(async () => {
+    if (pending.length === 0 || isSyncing) return;
+    const codes = pending.map(p => p.cdkey);
+    
+    // Clear pending first to avoid duplicates, handleRedeem will add them back if they fail again
+    const oldPending = [...pending];
+    setPending([]);
+    localStorage.removeItem(LOCAL_PENDING_KEY);
+
+    setInputValue(codes.join("\n"));
+    // We delay slightly to let state update if needed, though handleRedeem uses current history
+    setTimeout(() => {
+      handleRedeem();
+    }, 100);
+  }, [pending, isSyncing, handleRedeem]);
 
   return {
     user,
@@ -520,6 +622,7 @@ export const useRedeem = () => {
     inputValue,
     setInputValue,
     history,
+    pending,
     hasNewCodes,
     isSyncing,
     masterUrl,
@@ -530,6 +633,8 @@ export const useRedeem = () => {
     saveMasterUrl,
     handleSync,
     handleRedeem,
+    handleRetryPending,
+    handleDeletePending,
     handleDeleteHistory,
     handleClearAll
   };

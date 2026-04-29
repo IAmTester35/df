@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import SettingsPanel from "./components/SettingsPanel";
 import RedeemInput from "./components/RedeemInput";
 import RedeemHistoryTable from "./components/RedeemHistoryTable";
+import PendingRedeemTable from "./components/PendingRedeemTable";
 
 const App = () => {
   const {
@@ -10,6 +11,7 @@ const App = () => {
     inputValue,
     setInputValue,
     history,
+    pending,
     hasNewCodes,
     isSyncing,
     masterUrl,
@@ -20,6 +22,8 @@ const App = () => {
     saveMasterUrl,
     handleSync,
     handleRedeem,
+    handleRetryPending,
+    handleDeletePending,
     handleDeleteHistory,
     handleClearAll
   } = useRedeem();
@@ -52,6 +56,12 @@ const App = () => {
           history={history}
         />
 
+        <PendingRedeemTable 
+          pending={pending} 
+          onDelete={handleDeletePending} 
+          onRetry={handleRetryPending} 
+          isSyncing={isSyncing} 
+        />
         <RedeemHistoryTable history={history} onDelete={handleDeleteHistory} />
       </main>
 

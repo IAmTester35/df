@@ -1,4 +1,12 @@
 {
+  "name": "df-redeem-suite",
+  "version": "1.0.0",
+  "scripts": {
+    "deploy:worker": "npx wrangler deploy",
+    "tail:worker": "npx wrangler tail",
+    "deploy:app": "cd DF-RedeemCode && yarn deploy",
+    "deploy:all": "yarn deploy:worker && yarn deploy:app"
+  },
   "dependencies": {
     "firebase": "^12.11.0"
   }

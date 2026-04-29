@@ -1,15 +1,3 @@
-/**
- * Cloudflare Worker: Delta Force Auto-Redeem Proxy Gateway
- * Architecture: V6.0 - Zero-Config Centralized Proxy
- * 
- * Logic:
- * 1. Receive Redeem POST from Client (contains cdkey and masterUrl)
- * 2. Reconstruct the actual Garena target URL from masterUrl
- * 3. Forward to Garena Official API
- * 4. If Response is Success (0) or Limit (400067), forward to Google Apps Script (GAS)
- * 5. Return original Garena response to Client
- */
-
 export default {
   async fetch(request, env, ctx) {
     const corsHeaders = {
@@ -18,99 +6,93 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type, Accept, Referer",
     };
 
-    // 1. Handle Preflight Options (CORS)
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
-    }
-
-    if (request.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
-    }
+    if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
     try {
       const input = await request.json();
-      const { masterUrl, cdkey, ...restBody } = input;
+      const { masterUrl, cdkey, cdkeys, ...restBody } = input;
 
-      if (!masterUrl || !cdkey) {
-        throw new Error("Missing masterUrl or cdkey in request body");
+      if (!masterUrl) throw new Error("Missing masterUrl");
+
+      // Case 1: Batch processing (Mới - Tiết kiệm chi phí gọi request)
+      if (cdkeys && Array.isArray(cdkeys)) {
+        const results = [];
+        const ua = request.headers.get("User-Agent");
+        for (const key of cdkeys) {
+          const res = await this.redeemSingle(key, masterUrl, restBody, env, ctx, ua);
+          results.push({ cdkey: key, ...res });
+          
+          if (res.original && Number(res.original.code) === 300001) break;
+
+          if (cdkeys.indexOf(key) < cdkeys.length - 1) {
+            await new Promise(r => setTimeout(r, 200));
+          }
+        }
+        return new Response(JSON.stringify({ codes: results }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
 
-      // 2. Prepare Target Request (Zero-Config: Lấy target từ chính masterUrl client gửi lên)
-      // Thay thế cdkey trong masterUrl để ra URL đích thực tế
-      const targetUrl = masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+      if (!cdkey) throw new Error("Missing cdkey");
+      const res = await this.redeemSingle(cdkey, masterUrl, restBody, env, ctx, request.headers.get("User-Agent"));
       
-      const garenaResponse = await fetch(targetUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Referer": "https://redeem.df.garena.sg/",
-          "User-Agent": request.headers.get("User-Agent") || "Mozilla/5.0",
-        },
-        body: JSON.stringify({ ...restBody, cdkey }), // Forward body clean
-      });
-
-      // 3. Clone or Buffer for double-reading (one for client, one for GAS logic)
-      const responseBody = await garenaResponse.arrayBuffer();
-      const bodyText = new TextDecoder().decode(responseBody);
-
-      // 4. Background Sync to Google Apps Script (GAS)
-      try {
-        const result = JSON.parse(bodyText);
-        let statusDigit = -1;
-        if (result.code === 0) {
-          statusDigit = 0;
-        } else if (String(result.code) === "400067") {
-          statusDigit = 1;
-        }
-
-        const GAS_URL = env.GAS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycbzKx5iFDII-yjbhTsCxFrWRUFff20aJJjBilVQn-B7n6c8RuIUWDo54_yY3VklYQQCV/exec";
-        
-        if (statusDigit !== -1) {
-          const params = new URLSearchParams({
-            cdkey: cdkey,
-            status: String(statusDigit),
-            timestamp: String(Math.floor(Date.now() / 1000))
-          });
-          const finalGasUrl = `${GAS_URL}${GAS_URL.includes("?") ? "&" : "?"}${params.toString()}`;
-
-          ctx.waitUntil(
-            fetch(finalGasUrl)
-              .catch(e => console.error("GAS Webhook Error:", e))
-          );
-        }
-      } catch (e) {
-        // Just log the error, don't break the proxy flow
-        console.warn("GAS logic fallback or non-JSON response:", e.message);
-      }
-
-      // 5. Determine HTTP Status based on Garena Code
-      let finalStatus = garenaResponse.status;
-      try {
-        const result = JSON.parse(bodyText);
-        // If Garena returned 200 but code is not 0, force a 400 to show as error in network tab
-        if (result.code !== 0 && finalStatus === 200) {
-          finalStatus = 400;
-        }
-      } catch (e) {}
-
-      // 6. Return response to Frontend
-      return new Response(responseBody, {
-        status: finalStatus,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": garenaResponse.headers.get("Content-Type") || "application/json",
-        },
+      return new Response(JSON.stringify(res.original), {
+        status: res.finalStatus,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
     } catch (err) {
-      return new Response(JSON.stringify({ 
-        code: -1, 
-        message: "Proxy Error: " + err.message 
-      }), {
+      return new Response(JSON.stringify({ code: -1, message: "Proxy Error: " + err.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   },
+
+  async redeemSingle(cdkey, masterUrl, restBody, env, ctx, userAgent) {
+    try {
+      const targetUrl = masterUrl.replace(/cdkey=[^&]*/, `cdkey=${cdkey}`);
+      const garenaResponse = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Referer": "https://redeem.df.garena.sg/",
+          "User-Agent": userAgent || "Mozilla/5.0",
+        },
+        body: JSON.stringify({ ...restBody, cdkey }),
+      });
+
+      let result;
+      try {
+        result = await garenaResponse.json();
+      } catch (e) {
+        return { 
+          original: { code: -2, message: "Garena Server Busy (Non-JSON)" }, 
+          finalStatus: 502 
+        };
+      }
+
+      let finalStatus = garenaResponse.status;
+
+      if (result.code === 0 || String(result.code) === "400067") {
+        const statusDigit = result.code === 0 ? 0 : 1;
+        const GAS_URL = env.GAS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycbzKx5iFDII-yjbhTsCxFrWRUFff20aJJjBilVQn-B7n6c8RuIUWDo54_yY3VklYQQCV/exec";
+        const params = new URLSearchParams({ cdkey, status: String(statusDigit), timestamp: String(Math.floor(Date.now() / 1000)) });
+        const finalGasUrl = `${GAS_URL}${GAS_URL.includes("?") ? "&" : "?"}${params.toString()}`;
+        
+        ctx.waitUntil(fetch(finalGasUrl).catch(() => {}));
+      }
+
+      if (result.code !== 0 && finalStatus === 200) finalStatus = 400;
+
+      return { original: result, finalStatus };
+    } catch (e) {
+      return { 
+        original: { code: -2, message: "Garena Connection Failed: " + e.message }, 
+        finalStatus: 504 
+      };
+    }
+  }
 };
+
