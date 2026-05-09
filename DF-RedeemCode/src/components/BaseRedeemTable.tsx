@@ -66,7 +66,7 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
       </div>
 
       <div className={`nordic-card p-0! overflow-hidden ${theme.cardBorder} ${theme.cardBg}!`}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className={`border-b ${theme.cardBorder} ${theme.headerBg}`}>
@@ -77,14 +77,16 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
               </tr>
             </thead>
             <tbody className={`divide-y ${theme.cardBorder}`}>
-              <AnimatePresence mode="popLayout">
+              <AnimatePresence>
                 {items.length > 0 ? (
                   items.map((item) => (
                     <motion.tr
+                      layout
                       key={item.id}
                       initial={{ opacity: 0, x: variant === 'amber' ? -20 : 0 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: variant === 'amber' ? 20 : 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
                       className={`${theme.rowHover} transition-colors`}
                     >
                       <td className={`px-6 py-4 font-mono font-medium ${theme.cdkeyText}`}>{item.cdkey}</td>
@@ -99,7 +101,7 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => onDelete(item.id)}
-                          className={`cursor-pointer p-2 transition-colors ${variant === 'amber' ? 'text-amber-400/50 hover:text-red-400' : 'text-slate-500 hover:text-red-400'}`}
+                          className={`p-2 transition-colors ${variant === 'amber' ? 'text-amber-400/50 hover:text-red-400' : 'text-slate-500 hover:text-red-400'}`}
                           title="Xoá"
                         >
                           <Trash2 size={16} />
@@ -108,14 +110,19 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
                     </motion.tr>
                   ))
                 ) : (
-                  <tr>
+                  <motion.tr
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
                     <td colSpan={4} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center gap-4 text-slate-500">
                         <Cloud size={48} strokeWidth={1} className="opacity-30" />
                         <p className="text-sm">{emptyMessage}</p>
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 )}
               </AnimatePresence>
             </tbody>

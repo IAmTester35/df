@@ -431,7 +431,7 @@ export const useRedeem = () => {
             syncSummary.push({ cdkey: res.cdkey, status: 'failure', msg: res.message });
             continue; // Don't save to history if it's a server error
           }
-          
+
           syncSummary.push({ cdkey: res.cdkey, status: res.status, msg: res.message });
           newHistoryEntries.push({
             id: `v-${meta.safeKey}`,
@@ -603,7 +603,7 @@ export const useRedeem = () => {
   const handleRetryPending = useCallback(async () => {
     if (pending.length === 0 || isSyncing) return;
     const codes = pending.map(p => p.cdkey);
-    
+
     // Clear pending first to avoid duplicates, handleRedeem will add them back if they fail again
     const oldPending = [...pending];
     setPending([]);

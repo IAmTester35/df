@@ -1,10 +1,12 @@
+import { useState, useEffect } from "react";
 import { useRedeem } from "./hooks/useRedeem";
 import Navbar from "./components/Navbar";
 import SettingsPanel from "./components/SettingsPanel";
 import RedeemInput from "./components/RedeemInput";
 import RedeemHistoryTable from "./components/RedeemHistoryTable";
 import PendingRedeemTable from "./components/PendingRedeemTable";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { ChevronUp } from "lucide-react";
 
 const Github = ({ size = 24 }: { size?: number }) => (
   <svg 
@@ -46,6 +48,28 @@ const App = () => {
     handleClearAll
   } = useRedeem();
 
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center p-6 md:p-12 overflow-x-hidden">
       <Navbar 
@@ -59,6 +83,7 @@ const App = () => {
       <main className="w-full max-w-[1200px] mt-24 md:mt-32 space-y-12">
         <SettingsPanel 
           showSettings={showSettings} 
+          setShowSettings={setShowSettings}
           masterUrl={masterUrl} 
           saveMasterUrl={saveMasterUrl} 
           handleClearAll={handleClearAll}
@@ -107,6 +132,23 @@ const App = () => {
           <span className="text-[11px] font-semibold tracking-wider">SOURCE CODE</span>
         </motion.a>
       </footer>
+
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 20 }}
+            whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+            whileTap={{ scale: 0.9 }}
+            onClick={scrollToTop}
+            className="fixed bottom-8 right-8 z-50 p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-2xl transition-colors"
+            aria-label="Back to top"
+          >
+            <ChevronUp size={24} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

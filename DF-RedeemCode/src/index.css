@@ -36,6 +36,10 @@ body {
   background-size: cover;
 }
 
+button {
+  cursor: pointer;
+}
+
 :root {
   /* Nordic Arctic Blue Palette (Premium Dark Variant) */
   --color-primary: #3B82F6;
