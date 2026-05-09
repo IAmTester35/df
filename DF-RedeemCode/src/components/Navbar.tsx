@@ -49,13 +49,6 @@ const Navbar: React.FC<NavbarProps> = ({
   return (
     <nav className="nav-floating glass-effect backdrop-blur-xs flex items-center justify-between rounded-full overflow-visible!">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 overflow-hidden rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 bg-slate-900/50 border border-white/10">
-          <img 
-            src="/logo.png" 
-            alt="Delta Force Logo" 
-            className="w-full h-full object-cover scale-110"
-          />
-        </div>
         <span className="font-bold text-xl tracking-tight hidden sm:block">
           Delta Force <span className="text-blue-400">Redeem</span>
         </span>

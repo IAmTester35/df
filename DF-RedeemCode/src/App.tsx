@@ -110,7 +110,7 @@ const App = () => {
 
       <footer className="mt-24 w-full max-w-[1200px] py-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 opacity-40 hover:opacity-100 transition-opacity duration-500">
         <div className="flex flex-col items-center md:items-start gap-2">
-          <p className="text-xs font-bold tracking-[0.2em] uppercase text-white">Delta Force Auto-Redeem</p>
+          <p className="text-xs font-bold tracking-[0.2em] uppercase text-white">DF Auto-Redeem</p>
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1">
             <p className="text-[10px] text-slate-400 font-medium">© 2026 IAmTester35</p>
             <span className="hidden md:block w-1 h-1 rounded-full bg-slate-600" />
