@@ -43,6 +43,14 @@ export interface RedeemHistory {
   timestamp: number;
 }
 
+export interface RedeemBatchResult {
+  cdkey: string;
+  expired: boolean;
+  isServerError: boolean;
+  status: 'success' | 'failure';
+  message: string;
+}
+
 const showSummaryAlert = (
   results: { cdkey: string; status: 'success' | 'failure' | 'skipped'; msg: string }[],
   options: {
@@ -130,6 +138,7 @@ export const useRedeem = () => {
   // Use refs to avoid effect dependencies
   const historyRef = useRef(history);
   const userMetaRef = useRef(userMeta);
+  const pendingRef = useRef(pending);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -139,6 +148,10 @@ export const useRedeem = () => {
   useEffect(() => {
     userMetaRef.current = userMeta;
   }, [userMeta]);
+
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
 
   // Initial load
   useEffect(() => {
@@ -181,6 +194,7 @@ export const useRedeem = () => {
             const lastSync = typeof data.lastSync === 'number' ? data.lastSync : (typeof data.s === 'number' ? data.s : 0);
             const meta: UserMeta = { ...data, lastSync };
             setUserMeta(meta);
+            localStorage.setItem(LOCAL_SYNC_TIME_KEY, lastSync.toString());
             if (data.masterUrl) {
               setMasterUrl(data.masterUrl);
               localStorage.setItem(LOCAL_MASTER_URL_KEY, data.masterUrl);
@@ -204,26 +218,27 @@ export const useRedeem = () => {
   useEffect(() => {
     const latestQuery = query(ref(db, 'c'), orderByValue(), limitToLast(1));
     const unsubscribeDb = onValue(latestQuery, (snapshot) => {
+      let foundNew = false;
       snapshot.forEach((child) => {
         const safeKey = child.key;
         const val = child.val() as number;
         const ts = Math.floor(val / 10);
 
-        const currentMeta = userMetaRef.current;
         const currentHistory = historyRef.current;
 
-        if (ts > currentMeta.lastSync) {
-          setHasNewCodes(true);
-        } else if (ts === currentMeta.lastSync && safeKey) {
+        if (ts > userMeta.lastSync) {
+          foundNew = true;
+        } else if (ts === userMeta.lastSync && safeKey) {
           const cdkey = unescapeFirebaseKey(safeKey);
           if (!currentHistory.some(h => h.cdkey.toUpperCase() === cdkey.toUpperCase())) {
-            setHasNewCodes(true);
+            foundNew = true;
           }
         }
       });
+      setHasNewCodes(foundNew);
     });
     return unsubscribeDb;
-  }, []);
+  }, [userMeta.lastSync]);
 
   const handleLogin = useCallback(async () => {
     const provider = new GoogleAuthProvider();
@@ -263,61 +278,94 @@ export const useRedeem = () => {
         setUserMeta(prev => ({ ...prev, lastSync: 0 }));
         localStorage.removeItem(LOCAL_STORAGE_KEY);
         localStorage.removeItem(LOCAL_SYNC_TIME_KEY);
+        if (user && !user.isAnonymous) {
+          update(ref(db, `u/${user.uid}`), { lastSync: 0, s: null });
+        }
         Swal.fire('Đã xoá!', 'Lịch sử đã được dọn sạch.', 'success');
       }
     });
-  }, []);
+  }, [user]);
 
-  const callRedeemBatch = useCallback(async (cdkeys: string[], config: Record<string, unknown>, signal: AbortSignal) => {
-    try {
-      const workerUrl = import.meta.env.VITE_WORKER_URL;
-      if (!workerUrl) throw new Error("VITE_WORKER_URL is not configured");
+  const callRedeemBatch = useCallback(async (cdkeys: string[], config: Record<string, unknown>, signal: AbortSignal): Promise<RedeemBatchResult[]> => {
+    const MAX_BATCH_RETRIES = 2;
+    const BASE_RETRY_DELAY = 1500;  // 1.5s cho batch-level retry
 
-      const response = await fetch(workerUrl, {
-        method: "POST",
-        headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
-        signal,
-        body: JSON.stringify({
-          masterUrl,
-          cdkeys,
-          lang_type: config.lang_type,
-          role_info: { game_id: config.game_id }
-        })
-      });
+    for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt++) {
+      try {
+        const workerUrl = import.meta.env.VITE_WORKER_URL;
+        if (!workerUrl) throw new Error("VITE_WORKER_URL is not configured");
 
-      const data = await response.json();
-      if (!data.codes) {
-        throw new Error(data.message || "Invalid batch response from proxy");
-      }
+        const response = await fetch(workerUrl, {
+          method: "POST",
+          headers: { "Accept": "application/json", "Content-Type": "application/json", "Referer": "https://redeem.df.garena.sg/" },
+          signal,
+          body: JSON.stringify({
+            masterUrl,
+            cdkeys,
+            lang_type: config.lang_type,
+            role_info: { game_id: config.game_id }
+          })
+        });
 
-      return data.codes.map((item: any) => {
-        const result = item.original;
-        const expired = Number(result.code) === 300001;
-        const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
-
-        let displayMsg = result.msg || result.message;
-        if (result.code === -2) {
-          displayMsg = `Garena Server Error: ${displayMsg}`;
-        } else if (!displayMsg) {
-          displayMsg = statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`;
+        // Retry on 429 or 5xx from the worker itself
+        if (response.status === 429 || response.status >= 500) {
+          if (attempt < MAX_BATCH_RETRIES) {
+            const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          throw new Error(`Worker returned HTTP ${response.status} after ${MAX_BATCH_RETRIES + 1} attempts`);
         }
 
-        return {
-          cdkey: item.cdkey,
-          expired,
-          isServerError: result.code === -2,
-          status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure',
-          message: displayMsg
-        };
-      });
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') throw err;
-      throw err;
+        const data = await response.json();
+        if (!data.codes) {
+          throw new Error(data.message || "Invalid batch response from proxy");
+        }
+
+        // Separate server-error codes for individual retry
+        const results: RedeemBatchResult[] = data.codes.map((item: any): RedeemBatchResult => {
+          const result = item.original;
+          const expired = Number(result.code) === 300001;
+          const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
+
+          let displayMsg = result.msg || result.message;
+          if (result.code === -2) {
+            displayMsg = `Garena Server Error: ${displayMsg}`;
+          } else if (!displayMsg) {
+            displayMsg = statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`;
+          }
+
+          return {
+            cdkey: item.cdkey,
+            expired,
+            isServerError: result.code === -2,
+            status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure',
+            message: displayMsg
+          };
+        });
+
+        return results;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        if (attempt < MAX_BATCH_RETRIES) {
+          const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw err;
+      }
     }
+
+    // Should not reach here, but satisfy TypeScript
+    throw new Error("Unexpected: retry loop exhausted");
   }, [masterUrl]);
 
   const saveToLocal = useCallback((newHistory: RedeemHistory[], newPending?: RedeemHistory[]) => {
-    const maxTs = Math.max(0, ...newHistory.map(h => Math.floor(h.timestamp / 1000)));
+    const historyMaxTs = newHistory.length > 0
+      ? Math.max(...newHistory.map(h => Math.floor(h.timestamp / 1000)))
+      : 0;
+    const maxTs = Math.max(userMetaRef.current.lastSync, historyMaxTs);
+
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newHistory));
     localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTs.toString());
     setHistory(newHistory.sort((a, b) => b.timestamp - a.timestamp));
@@ -454,7 +502,7 @@ export const useRedeem = () => {
       }
 
       // Collect pending from sync results
-      const newPending = [...pending];
+      const newPending = [...pendingRef.current];
       batchResults.forEach((res: any) => {
         if (res.isServerError && !newPending.some(p => p.cdkey === res.cdkey)) {
           newPending.push({
@@ -486,10 +534,10 @@ export const useRedeem = () => {
     }
   }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user, callRedeemBatch]);
 
-  const handleRedeem = useCallback(async () => {
-    if (!inputValue.trim()) return;
+  const handleRedeem = useCallback(async (customCodes?: string[]) => {
+    const uniqueCodes = Array.isArray(customCodes) ? customCodes : (inputValue.trim() ? parseInputCodes(inputValue) : []);
+    if (uniqueCodes.length === 0) return;
 
-    const uniqueCodes = parseInputCodes(inputValue);
     const codesToRun = uniqueCodes.filter(c => !history.some(h => h.cdkey.toUpperCase() === c.toUpperCase()));
     const skippedCodes = uniqueCodes.filter(c => history.some(h => h.cdkey.toUpperCase() === c.toUpperCase()));
 
@@ -545,11 +593,13 @@ export const useRedeem = () => {
           summary.push({ cdkey: res.cdkey, msg: res.message, status: res.status });
         }
 
-        // Keep server errors in input for retry
-        if (serverErrorCodes.length > 0) {
-          setInputValue(serverErrorCodes.join("\n"));
-        } else {
-          setInputValue("");
+        // Keep server errors in input for retry if not customCodes
+        if (!Array.isArray(customCodes)) {
+          if (serverErrorCodes.length > 0) {
+            setInputValue(serverErrorCodes.join("\n"));
+          } else {
+            setInputValue("");
+          }
         }
       }
 
@@ -559,7 +609,7 @@ export const useRedeem = () => {
       });
 
       // Collect pending from redeem results
-      const newPending = [...pending];
+      const newPending = [...pendingRef.current];
       if (codesToRun.length > 0) {
         for (const res of batchResults) {
           if (res.isServerError && !newPending.some(p => p.cdkey === res.cdkey)) {
@@ -595,26 +645,22 @@ export const useRedeem = () => {
   }, [history, saveToLocal]);
 
   const handleDeletePending = useCallback((id: string) => {
-    const newPending = pending.filter(h => h.id !== id);
+    const newPending = pendingRef.current.filter(h => h.id !== id);
     setPending(newPending);
     localStorage.setItem(LOCAL_PENDING_KEY, JSON.stringify(newPending));
-  }, [pending]);
+  }, []);
 
   const handleRetryPending = useCallback(async () => {
-    if (pending.length === 0 || isSyncing) return;
-    const codes = pending.map(p => p.cdkey);
+    const currentPending = pendingRef.current;
+    if (currentPending.length === 0 || isSyncing) return;
+    const codes = currentPending.map(p => p.cdkey);
 
     // Clear pending first to avoid duplicates, handleRedeem will add them back if they fail again
-    const oldPending = [...pending];
     setPending([]);
     localStorage.removeItem(LOCAL_PENDING_KEY);
 
-    setInputValue(codes.join("\n"));
-    // We delay slightly to let state update if needed, though handleRedeem uses current history
-    setTimeout(() => {
-      handleRedeem();
-    }, 100);
-  }, [pending, isSyncing, handleRedeem]);
+    await handleRedeem(codes);
+  }, [isSyncing, handleRedeem]);
 
   return {
     user,

@@ -40,9 +40,17 @@ function doPost(e) {
 function processData(cdkey, status, timestamp) {
   try {
     const safeKey = escapeFirebaseKey(cdkey);
-    const value = timestamp * 10 + status;
     const url = `${FIREBASE_DB_URL}/c/${safeKey}.json?auth=${FIREBASE_SECRET}`;
+    const statusNum = Number(status);
     
+    if (statusNum === 2) {
+      UrlFetchApp.fetch(url, {
+        method: "DELETE"
+      });
+      return response("Deleted", 200);
+    }
+
+    const value = timestamp * 10 + status;
     UrlFetchApp.fetch(url, {
       method: "PUT",
       contentType: "application/json",
