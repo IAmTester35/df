@@ -13,6 +13,12 @@ interface RedeemInputProps {
   handleSync: () => void;
   handleRedeem: () => void;
   history: RedeemHistory[];
+  syncProgress: {
+    current: number;
+    total: number;
+    currentCdkey: string;
+    remaining: string[];
+  } | null;
 }
 
 const RedeemInput: React.FC<RedeemInputProps> = ({ 
@@ -22,7 +28,8 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
   hasNewCodes, 
   handleSync, 
   handleRedeem,
-  history
+  history,
+  syncProgress
 }) => {
   const [isExtracting, setIsExtracting] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -153,6 +160,31 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
               })}
             </div>
           </div>
+
+          {syncProgress && (
+            <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl text-left space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex justify-between items-center text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+                <span>Đang xử lý: {syncProgress.currentCdkey}</span>
+                <span>{syncProgress.current} / {syncProgress.total} ({Math.round((syncProgress.current / syncProgress.total) * 100)}%)</span>
+              </div>
+              
+              <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                <motion.div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-sky-400"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
+                  transition={{ duration: 0.15 }}
+                />
+              </div>
+              
+              {syncProgress.remaining.length > 0 && (
+                <div className="text-[10px] text-slate-500 truncate font-mono">
+                  Còn lại: {syncProgress.remaining.join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-white/5">
             <div className="flex-1 flex items-center px-2">
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">

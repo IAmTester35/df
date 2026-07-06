@@ -28,7 +28,8 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
   hideIfEmpty = false,
   defaultCollapsed = false
 }) => {
-  const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed);
+  const check = items.length > 0 ? defaultCollapsed : false;
+  const [isCollapsed, setIsCollapsed] = React.useState(check);
 
   if (hideIfEmpty && items.length === 0) return null;
 
@@ -62,7 +63,7 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
   return (
     <section className={`space-y-4 ${variant === 'amber' ? 'animate-in fade-in slide-in-from-top-4 duration-500' : ''}`}>
       <div className="flex items-center justify-between px-4">
-        <h3 
+        <h3
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={`font-bold text-lg flex items-center gap-2 cursor-pointer select-none hover:opacity-80 transition-opacity ${theme.titleText}`}
         >
@@ -77,14 +78,14 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
 
       <AnimatePresence initial={false}>
         {!isCollapsed && (
-          <motion.div 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
             className={`nordic-card p-0! overflow-hidden ${theme.cardBorder} ${theme.cardBg}!`}
           >
-            <div className="max-h-[480px] overflow-y-auto overflow-x-auto custom-scrollbar">
+            <div className="overflow-y-auto overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b ${theme.cardBorder} ${theme.headerBg}`}>

@@ -127,6 +127,13 @@ const showExpiredAlert = () => {
 export const useRedeem = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userMeta, setUserMeta] = useState<UserMeta>({ lastSync: 0 });
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [syncProgress, setSyncProgress] = useState<{
+    current: number;
+    total: number;
+    currentCdkey: string;
+    remaining: string[];
+  } | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [history, setHistory] = useState<RedeemHistory[]>([]);
   const [pending, setPending] = useState<RedeemHistory[]>([]);
@@ -206,9 +213,15 @@ export const useRedeem = () => {
           }
         } catch (e) {
           console.error("User meta load error", e);
+        } finally {
+          setIsInitializing(false);
         }
       } else {
-        signInAnonymously(auth);
+        signInAnonymously(auth).then(() => {
+          setIsInitializing(false);
+        }).catch(() => {
+          setIsInitializing(false);
+        });
       }
     });
     return unsubscribeAuth;
@@ -220,19 +233,11 @@ export const useRedeem = () => {
     const unsubscribeDb = onValue(latestQuery, (snapshot) => {
       let foundNew = false;
       snapshot.forEach((child) => {
-        const safeKey = child.key;
         const val = child.val() as number;
         const ts = Math.floor(val / 10);
 
-        const currentHistory = historyRef.current;
-
         if (ts > userMeta.lastSync) {
           foundNew = true;
-        } else if (ts === userMeta.lastSync && safeKey) {
-          const cdkey = unescapeFirebaseKey(safeKey);
-          if (!currentHistory.some(h => h.cdkey.toUpperCase() === cdkey.toUpperCase())) {
-            foundNew = true;
-          }
         }
       });
       setHasNewCodes(foundNew);
@@ -287,10 +292,20 @@ export const useRedeem = () => {
   }, [user]);
 
   const callRedeemBatch = useCallback(async (cdkeys: string[], config: Record<string, unknown>, signal: AbortSignal): Promise<RedeemBatchResult[]> => {
-    const MAX_BATCH_RETRIES = 2;
-    const BASE_RETRY_DELAY = 1500;  // 1.5s cho batch-level retry
+    const results: RedeemBatchResult[] = [];
+    const total = cdkeys.length;
 
-    for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt++) {
+    for (let i = 0; i < total; i++) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+      const cdkey = cdkeys[i];
+      setSyncProgress({
+        current: i + 1,
+        total,
+        currentCdkey: cdkey,
+        remaining: cdkeys.slice(i + 1)
+      });
+
       try {
         const workerUrl = import.meta.env.VITE_WORKER_URL;
         if (!workerUrl) throw new Error("VITE_WORKER_URL is not configured");
@@ -301,29 +316,19 @@ export const useRedeem = () => {
           signal,
           body: JSON.stringify({
             masterUrl,
-            cdkeys,
+            cdkeys: [cdkey],
             lang_type: config.lang_type,
             role_info: { game_id: config.game_id }
           })
         });
 
-        // Retry on 429 or 5xx from the worker itself
         if (response.status === 429 || response.status >= 500) {
-          if (attempt < MAX_BATCH_RETRIES) {
-            const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
-            await new Promise(r => setTimeout(r, delay));
-            continue;
-          }
-          throw new Error(`Worker returned HTTP ${response.status} after ${MAX_BATCH_RETRIES + 1} attempts`);
+          throw new Error(`Worker returned HTTP ${response.status}`);
         }
 
         const data = await response.json();
-        if (!data.codes) {
-          throw new Error(data.message || "Invalid batch response from proxy");
-        }
-
-        // Separate server-error codes for individual retry
-        const results: RedeemBatchResult[] = data.codes.map((item: any): RedeemBatchResult => {
+        if (data.codes && data.codes.length > 0) {
+          const item = data.codes[0];
           const result = item.original;
           const expired = Number(result.code) === 300001;
           const statusDigit = result.code === 0 ? 0 : (Number(result.code) === 400067 ? 1 : 2);
@@ -335,29 +340,38 @@ export const useRedeem = () => {
             displayMsg = statusDigit === 0 ? 'Thành công' : `Lỗi ${result.code}`;
           }
 
-          return {
+          results.push({
             cdkey: item.cdkey,
             expired,
             isServerError: result.code === -2,
             status: (statusDigit === 0 ? 'success' : 'failure') as 'success' | 'failure',
             message: displayMsg
-          };
-        });
+          });
 
-        return results;
+          if (expired) {
+            break;
+          }
+        } else {
+          throw new Error(data.message || "Invalid response from worker");
+        }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
-        if (attempt < MAX_BATCH_RETRIES) {
-          const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        throw err;
+        results.push({
+          cdkey,
+          expired: false,
+          isServerError: true,
+          status: 'failure',
+          message: err instanceof Error ? err.message : "Connection failed"
+        });
+      }
+
+      if (i < total - 1) {
+        await new Promise(r => setTimeout(r, 250));
       }
     }
 
-    // Should not reach here, but satisfy TypeScript
-    throw new Error("Unexpected: retry loop exhausted");
+    setSyncProgress(null);
+    return results;
   }, [masterUrl]);
 
   const saveToLocal = useCallback((newHistory: RedeemHistory[], newPending?: RedeemHistory[]) => {
@@ -391,7 +405,7 @@ export const useRedeem = () => {
   }, [user]);
 
   const handleSync = useCallback(async () => {
-    if (isSyncing) return;
+    if (isSyncing || isInitializing) return;
     setIsSyncing(true);
 
     // Create new controller for this sync session
@@ -429,7 +443,7 @@ export const useRedeem = () => {
       const entries = Object.entries(data);
       const newHistoryEntries: RedeemHistory[] = [...currentHistory];
       const config = getParams(masterUrl);
-      let maxTsInBatch = userMeta.lastSync;
+      let maxProcessedTs = userMeta.lastSync;
 
       const syncSummary: { cdkey: string; status: 'success' | 'failure'; msg: string }[] = [];
       const codesToRedeem: string[] = [];
@@ -442,24 +456,29 @@ export const useRedeem = () => {
         const cdkey = unescapeFirebaseKey(safeKey);
         const upperCdKey = cdkey.toUpperCase();
 
-        if (ts > maxTsInBatch) maxTsInBatch = ts;
+        const isDuplicate = localKeys.has(upperCdKey);
+        const isExpired = statusDigit === 2;
 
-        if (!localKeys.has(upperCdKey) && (statusDigit === 0 || statusDigit === 1)) {
-          if (config.openid) {
-            codesToRedeem.push(cdkey);
-            codeMetadata[cdkey] = { ts, safeKey };
-          } else {
-            // No config, just add to history
-            newHistoryEntries.push({
-              id: `v-${safeKey}`,
-              cdkey,
-              status: 'success',
-              message: statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)',
-              timestamp: ts * 1000
-            });
-            localKeys.add(upperCdKey);
-            addedCount++;
-          }
+        if (isDuplicate || isExpired) {
+          if (ts > maxProcessedTs) maxProcessedTs = ts;
+          continue;
+        }
+
+        if (config.openid) {
+          codesToRedeem.push(cdkey);
+          codeMetadata[cdkey] = { ts, safeKey };
+        } else {
+          // No config, just add to history and update maxProcessedTs
+          newHistoryEntries.push({
+            id: `v-${safeKey}`,
+            cdkey,
+            status: 'success',
+            message: statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)',
+            timestamp: ts * 1000
+          });
+          localKeys.add(upperCdKey);
+          addedCount++;
+          if (ts > maxProcessedTs) maxProcessedTs = ts;
         }
       }
 
@@ -467,14 +486,27 @@ export const useRedeem = () => {
       if (codesToRedeem.length > 0) {
         batchResults = await callRedeemBatch(codesToRedeem, config, controller.signal);
         for (const res of batchResults) {
+          const meta = codeMetadata[res.cdkey];
+
           if (res.expired) {
+            // Update lastSync up to this point before returning early
+            if (maxProcessedTs > userMeta.lastSync) {
+              localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxProcessedTs.toString());
+              setUserMeta(prev => ({ ...prev, lastSync: maxProcessedTs }));
+              if (user && !user.isAnonymous) {
+                update(ref(db, `u/${user.uid}`), { lastSync: maxProcessedTs, s: null });
+              }
+            }
             showExpiredAlert();
             saveToLocal(newHistoryEntries);
             setIsSyncing(false);
             return;
           }
 
-          const meta = codeMetadata[res.cdkey];
+          if (meta && meta.ts > maxProcessedTs) {
+            maxProcessedTs = meta.ts;
+          }
+
           if (res.isServerError) {
             syncSummary.push({ cdkey: res.cdkey, status: 'failure', msg: res.message });
             continue; // Don't save to history if it's a server error
@@ -492,12 +524,12 @@ export const useRedeem = () => {
         }
       }
 
-      // Update lastSync to the latest timestamp processed in the batch
-      if (maxTsInBatch > userMeta.lastSync) {
-        localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxTsInBatch.toString());
-        setUserMeta(prev => ({ ...prev, lastSync: maxTsInBatch }));
+      // Update lastSync to the latest timestamp successfully processed in the batch
+      if (maxProcessedTs > userMeta.lastSync) {
+        localStorage.setItem(LOCAL_SYNC_TIME_KEY, maxProcessedTs.toString());
+        setUserMeta(prev => ({ ...prev, lastSync: maxProcessedTs }));
         if (user && !user.isAnonymous) {
-          update(ref(db, `u/${user.uid}`), { lastSync: maxTsInBatch, s: null });
+          update(ref(db, `u/${user.uid}`), { lastSync: maxProcessedTs, s: null });
         }
       }
 
@@ -532,7 +564,7 @@ export const useRedeem = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [history, isSyncing, masterUrl, userMeta.lastSync, saveToLocal, user, callRedeemBatch]);
+  }, [history, isSyncing, isInitializing, masterUrl, userMeta.lastSync, saveToLocal, user, callRedeemBatch]);
 
   const handleRedeem = useCallback(async (customCodes?: string[]) => {
     const uniqueCodes = Array.isArray(customCodes) ? customCodes : (inputValue.trim() ? parseInputCodes(inputValue) : []);
@@ -665,12 +697,14 @@ export const useRedeem = () => {
   return {
     user,
     userMeta,
+    isInitializing,
     inputValue,
     setInputValue,
     history,
     pending,
     hasNewCodes,
     isSyncing,
+    syncProgress,
     masterUrl,
     showSettings,
     setShowSettings,

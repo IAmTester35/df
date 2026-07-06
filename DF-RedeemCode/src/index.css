@@ -11,12 +11,12 @@
   --color-text: #0F172A;
   --color-glass-bg: rgba(255, 255, 255, 0.45);
   --color-glass-border: rgba(255, 255, 255, 0.6);
-  
+
   /* Glassmorphism Variables */
   --glass-blur: 6px;
   --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08);
   --glass-border: 1px solid var(--color-glass-border);
-  
+
   /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -27,10 +27,11 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  color: #FFFFFF; /* Force White for high contrast */
+  color: #FFFFFF;
+  /* Force White for high contrast */
   min-height: 100vh;
   margin: 0;
-  background: 
+  background:
     linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.8)),
     url('/bg.avif') no-repeat center center fixed;
   background-size: cover;
@@ -45,16 +46,18 @@ button {
   --color-primary: #3B82F6;
   --color-secondary: #7DD3FC;
   --color-accent: #60A5FA;
-  --color-background: #0B0F1A; /* Deeper Dark */
+  --color-background: #0B0F1A;
+  /* Deeper Dark */
   --color-text: #F8FAFC;
-  
+
   /* Refined Glassmorphism */
-  --color-glass-bg: rgba(255, 255, 255, 0.05); /* Very light glass */
+  --color-glass-bg: rgba(255, 255, 255, 0.05);
+  /* Very light glass */
   --color-glass-border: rgba(255, 255, 255, 0.12);
   --glass-blur: 6px;
   --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   --glass-border: 1px solid var(--color-glass-border);
-  
+
   /* Spacing */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -63,9 +66,16 @@ button {
 }
 
 /* Removal of body::before gradient as it's now in body bg */
-body::before { display: none; }
+body::before {
+  display: none;
+}
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -129,6 +139,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @utility btn-ghost {
   @apply btn-nordic bg-transparent text-slate-400 px-4 py-2 text-sm;
+
   &:hover {
     @apply text-white bg-white/10;
   }
@@ -155,13 +166,16 @@ h1, h2, h3, h4, h5, h6 {
   &::-webkit-scrollbar {
     width: 4px;
   }
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
+
   &::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
   }
+
   &::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
   }

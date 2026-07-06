@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run --coverage",
-    "deploy": "yarn build && npx wrangler pages deploy dist --project-name=df-redeem-code --commit-dirty=true"
+    "deploy": "yarn build && npx wrangler pages deploy dist --project-name=df-redeem-code --commit-dirty=true",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
