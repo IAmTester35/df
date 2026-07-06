@@ -1,6 +1,6 @@
 import React from "react";
 import { Zap, RefreshCw, AlertCircle } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import Swal from "sweetalert2";
 import Tesseract from 'tesseract.js';
 import type { RedeemHistory } from "../hooks/useRedeem";
@@ -21,6 +21,16 @@ interface RedeemInputProps {
   } | null;
 }
 
+const showWarning = (cdkey: string) => {
+  Swal.fire({
+    icon: 'warning',
+    title: 'Mã đã tồn tại',
+    text: `Mã "${cdkey}" đã có trong lịch sử nạp của bạn.`,
+    confirmButtonText: 'Đã hiểu',
+    confirmButtonColor: '#3b82f6'
+  });
+};
+
 const RedeemInput: React.FC<RedeemInputProps> = ({ 
   inputValue, 
   setInputValue, 
@@ -39,16 +49,6 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
     if (textareaRef.current && overlayRef.current) {
       overlayRef.current.scrollTop = textareaRef.current.scrollTop;
     }
-  };
-
-  const showWarning = (cdkey: string) => {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Mã đã tồn tại',
-      text: `Mã "${cdkey}" đã có trong lịch sử nạp của bạn.`,
-      confirmButtonText: 'Đã hiểu',
-      confirmButtonColor: '#3b82f6'
-    });
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
@@ -98,7 +98,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
   const historyCodes = new Set(history.map(h => h.cdkey.toUpperCase()));
   return (
     <section className="flex justify-center">
-      <motion.div 
+      <m.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
         className="nordic-card w-full max-w-4xl text-center space-y-6"
@@ -169,7 +169,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
               </div>
               
               <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                <motion.div 
+                <m.div 
                   className="h-full bg-gradient-to-r from-blue-500 to-sky-400"
                   initial={{ width: 0 }}
                   animate={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
@@ -212,7 +212,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
             </button>
           </div>
         </div>
-      </motion.div>
+      </m.div>
     </section>
   );
 };

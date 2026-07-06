@@ -1,6 +1,6 @@
 import React, { type ReactNode } from "react";
 import { Trash2, Cloud, ChevronDown, ChevronUp } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import type { RedeemHistory } from "../hooks/useRedeem";
 
 interface BaseRedeemTableProps {
@@ -15,6 +15,31 @@ interface BaseRedeemTableProps {
   hideIfEmpty?: boolean;
   defaultCollapsed?: boolean;
 }
+
+const themes = {
+  blue: {
+    titleText: "text-white",
+    iconColor: "text-blue-400",
+    cardBorder: "border-white/5",
+    cardBg: "bg-white/5",
+    headerBg: "bg-white/5",
+    headerText: "text-slate-400",
+    rowHover: "hover:bg-white/5",
+    cdkeyText: "text-blue-100",
+    timeText: "text-slate-500"
+  },
+  amber: {
+    titleText: "text-amber-400",
+    iconColor: "text-amber-400",
+    cardBorder: "border-amber-500/30",
+    cardBg: "bg-amber-500/5",
+    headerBg: "bg-amber-500/10",
+    headerText: "text-amber-400/70",
+    rowHover: "hover:bg-amber-500/5",
+    cdkeyText: "text-amber-100",
+    timeText: "text-amber-400/50"
+  }
+};
 
 const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
   title,
@@ -32,31 +57,6 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
   const [isCollapsed, setIsCollapsed] = React.useState(check);
 
   if (hideIfEmpty && items.length === 0) return null;
-
-  const themes = {
-    blue: {
-      titleText: "text-white",
-      iconColor: "text-blue-400",
-      cardBorder: "border-white/5",
-      cardBg: "bg-white/5",
-      headerBg: "bg-white/5",
-      headerText: "text-slate-400",
-      rowHover: "hover:bg-white/5",
-      cdkeyText: "text-blue-100",
-      timeText: "text-slate-500"
-    },
-    amber: {
-      titleText: "text-amber-400",
-      iconColor: "text-amber-400",
-      cardBorder: "border-amber-500/30",
-      cardBg: "bg-amber-500/5",
-      headerBg: "bg-amber-500/10",
-      headerText: "text-amber-400/70",
-      rowHover: "hover:bg-amber-500/5",
-      cdkeyText: "text-amber-100",
-      timeText: "text-amber-400/50"
-    }
-  };
 
   const theme = themes[variant];
 
@@ -78,7 +78,7 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
 
       <AnimatePresence initial={false}>
         {!isCollapsed && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -99,7 +99,7 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
                   <AnimatePresence>
                     {items.length > 0 ? (
                       items.map((item) => (
-                        <motion.tr
+                        <m.tr
                           layout
                           key={item.id}
                           initial={{ opacity: 0, x: variant === 'amber' ? -20 : 0 }}
@@ -126,10 +126,10 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
                               <Trash2 size={16} />
                             </button>
                           </td>
-                        </motion.tr>
+                        </m.tr>
                       ))
                     ) : (
-                      <motion.tr
+                      <m.tr
                         layout
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -141,13 +141,13 @@ const BaseRedeemTable: React.FC<BaseRedeemTableProps> = ({
                             <p className="text-sm">{emptyMessage}</p>
                           </div>
                         </td>
-                      </motion.tr>
+                      </m.tr>
                     )}
                   </AnimatePresence>
                 </tbody>
               </table>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </section>

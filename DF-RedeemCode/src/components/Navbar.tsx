@@ -10,6 +10,21 @@ interface NavbarProps {
   handleLogout: () => void;
 }
 
+const currentMonth = new Date().getMonth() + 1;
+const currentYear = new Date().getFullYear();
+const timeSuffix = `${currentMonth}/${currentYear}`;
+
+const searchKeywords = [
+  { lang: "English", keywords: [`Delta Force redeem code ${currentYear}`, `Delta Force gift code ${timeSuffix}`, "Delta Force cdkey"] },
+  { lang: "Tiếng Việt", keywords: [`code Delta Force mới nhất ${timeSuffix}`, `nhận giftcode Delta Force ${currentYear}`, "tổng hợp code Delta Force"] },
+  { lang: "中文 (Chinese)", keywords: [`三角洲行动 礼包码 ${currentYear}`, `三角洲行动 兑换码 ${timeSuffix}`, "三角洲行动 CDKey"] },
+  { lang: "ไทย (Thai)", keywords: [`Delta Force โค้ดล่าสุด ${timeSuffix}`, `Delta Force รหัสของขวัญ ${currentYear}`, "Delta Force Gift Code"] }
+];
+
+const handleSearch = (keyword: string) => {
+  window.open(`https://www.google.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
+};
+
 const Navbar: React.FC<NavbarProps> = ({
   user,
   showSettings,
@@ -30,21 +45,6 @@ const Navbar: React.FC<NavbarProps> = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSearch]);
-
-  const currentMonth = new Date().getMonth() + 1;
-  const currentYear = new Date().getFullYear();
-  const timeSuffix = `${currentMonth}/${currentYear}`;
-
-  const searchKeywords = [
-    { lang: "English", keywords: [`Delta Force redeem code ${currentYear}`, `Delta Force gift code ${timeSuffix}`, "Delta Force cdkey"] },
-    { lang: "Tiếng Việt", keywords: [`code Delta Force mới nhất ${timeSuffix}`, `nhận giftcode Delta Force ${currentYear}`, "tổng hợp code Delta Force"] },
-    { lang: "中文 (Chinese)", keywords: [`三角洲行动 礼包码 ${currentYear}`, `三角洲行动 兑换码 ${timeSuffix}`, "三角洲行动 CDKey"] },
-    { lang: "ไทย (Thai)", keywords: [`Delta Force โค้ดล่าสุด ${timeSuffix}`, `Delta Force รหัสของขวัญ ${currentYear}`, "Delta Force Gift Code"] }
-  ];
-
-  const handleSearch = (keyword: string) => {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
-  };
 
   return (
     <nav className="nav-floating glass-effect backdrop-blur-xs flex items-center justify-between rounded-xl overflow-visible!">

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { Link, X, Check, AlertCircle, Fingerprint, Key, Globe, Activity } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { getParams } from "../lib/utils";
 import { DEFAULT_MASTER_URL } from "../lib/constants";
 
@@ -11,6 +11,13 @@ interface SettingsPanelProps {
   saveMasterUrl: (url: string) => void;
   handleClearAll: () => void;
 }
+
+const importantParams = [
+  { key: 'openid', label: 'User ID', icon: <Fingerprint size={12} />, color: 'blue' },
+  { key: 'token', label: 'Access Token', icon: <Key size={12} />, color: 'purple' },
+  { key: 'game_id', label: 'Game ID', icon: <Activity size={12} />, color: 'amber' },
+  { key: 'channel', label: 'Channel', icon: <Globe size={12} />, color: 'emerald' },
+];
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   showSettings,
@@ -37,18 +44,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }, [showSettings, setShowSettings]);
 
   const params = useMemo(() => getParams(masterUrl), [masterUrl]);
-  
-  const importantParams = [
-    { key: 'openid', label: 'User ID', icon: <Fingerprint size={12} />, color: 'blue' },
-    { key: 'token', label: 'Access Token', icon: <Key size={12} />, color: 'purple' },
-    { key: 'game_id', label: 'Game ID', icon: <Activity size={12} />, color: 'amber' },
-    { key: 'channel', label: 'Channel', icon: <Globe size={12} />, color: 'emerald' },
-  ];
 
   return (
     <AnimatePresence>
       {showSettings && (
-        <motion.section
+        <m.section
           layout
           initial={{ opacity: 0, y: -20, height: 0, marginBottom: 0 }}
           animate={{ opacity: 1, y: 0, height: 'auto', marginBottom: 32 }}
@@ -64,8 +64,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <X size={18} />
             </button>
             <div className="flex items-center gap-2 text-blue-400">
-              <Link size={18} />
-              <h3 className="font-bold text-white">Cấu hình Master URL</h3>
+               <Link size={18} />
+               <h3 className="font-bold text-white">Cấu hình Master URL</h3>
             </div>
             <div className="space-y-2">
               <textarea
@@ -132,7 +132,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </div>
             </div>
           </div>
-        </motion.section>
+        </m.section>
       )}
     </AnimatePresence>
   );
