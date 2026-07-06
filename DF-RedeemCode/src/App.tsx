@@ -80,7 +80,7 @@ const App = () => {
         handleLogout={handleLogout} 
       />
 
-      <main className="w-full max-w-[1200px] mt-24 md:mt-32 space-y-12">
+      <main className="w-full max-w-[1200px] mt-6 md:mt-8 space-y-12">
         <SettingsPanel 
           showSettings={showSettings} 
           setShowSettings={setShowSettings}

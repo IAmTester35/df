@@ -16,6 +16,7 @@ const RedeemHistoryTable: React.FC<RedeemHistoryTableProps> = ({ history, onDele
       items={history}
       onDelete={onDelete}
       variant="blue"
+      defaultCollapsed={true}
       emptyMessage="Chưa có dữ liệu lịch sử cục bộ"
       renderStatus={(item) => (
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${

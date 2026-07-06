@@ -47,7 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <nav className="nav-floating glass-effect backdrop-blur-xs flex items-center justify-between rounded-full overflow-visible!">
+    <nav className="nav-floating glass-effect backdrop-blur-xs flex items-center justify-between rounded-xl overflow-visible!">
       <div className="flex items-center gap-3">
         <span className="font-bold text-xl tracking-tight hidden sm:block">
           Delta Force <span className="text-blue-400">Redeem</span>
@@ -100,7 +100,7 @@ const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         {user && !user.isAnonymous ? (
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-[6px] pl-1 pr-3 py-1 rounded-full border border-white/10">
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-[6px] pl-1 pr-3 py-1 rounded-xl border border-white/10">
             <img
               src={user.photoURL || ""}
               alt="avatar"

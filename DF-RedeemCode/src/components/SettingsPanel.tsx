@@ -41,8 +41,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const importantParams = [
     { key: 'openid', label: 'User ID', icon: <Fingerprint size={12} />, color: 'blue' },
     { key: 'token', label: 'Access Token', icon: <Key size={12} />, color: 'purple' },
-    { key: 'route', label: 'Redeem Route', icon: <Activity size={12} />, color: 'amber' },
-    { key: 's_channel', label: 'Channel', icon: <Globe size={12} />, color: 'emerald' },
+    { key: 'game_id', label: 'Game ID', icon: <Activity size={12} />, color: 'amber' },
+    { key: 'channel', label: 'Channel', icon: <Globe size={12} />, color: 'emerald' },
   ];
 
   return (
