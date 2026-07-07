@@ -47,7 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({
   }, [showSearch]);
 
   return (
-    <nav className="nav-floating glass-effect backdrop-blur-xs flex items-center justify-between rounded-xl overflow-visible!">
+    <nav className="nav-floating glass-effect backdrop-blur-xs flex items-center justify-between rounded-xl relative z-50">
       <div className="flex items-center gap-3">
         <span className="font-bold text-xl tracking-tight hidden sm:block">
           Delta Force <span className="text-blue-400">Redeem</span>
