@@ -3,7 +3,7 @@ import { Zap, RefreshCw, AlertCircle } from "lucide-react";
 import { m } from "motion/react";
 import Swal from "sweetalert2";
 import Tesseract from 'tesseract.js';
-import type { RedeemHistory } from "../hooks/useRedeem";
+import type { RedeemHistory } from "../lib/redeemHelpers";
 
 interface RedeemInputProps {
   inputValue: string;
@@ -31,12 +31,12 @@ const showWarning = (cdkey: string) => {
   });
 };
 
-const RedeemInput: React.FC<RedeemInputProps> = ({ 
-  inputValue, 
-  setInputValue, 
-  isSyncing, 
-  hasNewCodes, 
-  handleSync, 
+const RedeemInput: React.FC<RedeemInputProps> = ({
+  inputValue,
+  setInputValue,
+  isSyncing,
+  hasNewCodes,
+  handleSync,
   handleRedeem,
   history,
   syncProgress
@@ -72,7 +72,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
       await worker.setParameters({
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\n '
       });
-      
+
       const { data: { text: tesseractText } } = await worker.recognize(imageBlob);
       await worker.terminate();
 
@@ -102,9 +102,9 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
   const historyCodes = new Set(history.map(h => h.cdkey.toUpperCase()));
   return (
     <section className="flex justify-center">
-      <m.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      <m.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         className="nordic-card w-full max-w-4xl text-center space-y-6"
       >
         <div className="space-y-2 relative">
@@ -117,23 +117,22 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
             </div>
           )}
         </div>
-        <div className={`flex flex-col gap-3 p-4 bg-white/5 backdrop-blur-[6px] rounded-2xl border transition-colors ${
-          hasNewCodes ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'
-        }`}>
+        <div className={`flex flex-col gap-3 p-4 bg-white/5 backdrop-blur-[6px] rounded-2xl border transition-colors ${hasNewCodes ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-white/10 focus-within:border-blue-400/30'
+          }`}>
           <div className="relative w-full min-h-[240px] font-mono text-sm group">
             {/* Hidden Textarea for Input - Always on bottom but receives focus */}
-            <textarea 
+            <textarea
               ref={textareaRef}
-              value={inputValue} 
+              value={inputValue}
               onScroll={handleScroll}
               onPaste={handlePaste}
-              onChange={(e) => setInputValue(e.target.value)} 
-              placeholder="Dán danh sách mã hoặc ảnh chứa mã vào đây..." 
-              className="w-full bg-transparent pl-9 pr-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[240px] resize-y block focus:ring-0 relative z-0 break-all text-left" 
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Dán danh sách mã hoặc ảnh chứa mã vào đây..."
+              className="w-full bg-transparent pl-9 pr-2 py-2 outline-none font-mono text-sm text-transparent caret-white min-h-[240px] resize-y block focus:ring-0 relative z-0 break-all text-left"
             />
 
             {/* Rich Text Overlay - Always on top but passes through most events */}
-            <div 
+            <div
               ref={overlayRef}
               className="absolute inset-0 pl-9 pr-2 py-2 pointer-events-none overflow-hidden whitespace-pre-wrap break-all z-10 text-left"
               aria-hidden="true"
@@ -141,7 +140,7 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
               {lines.map((line, i) => {
                 const trimmed = line.trim();
                 const isDuplicate = trimmed !== "" && historyCodes.has(trimmed.toUpperCase());
-                
+
                 return (
                   <div key={i} className="min-h-5 relative leading-5">
                     {isDuplicate && (
@@ -153,8 +152,8 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
                         <AlertCircle size={14} />
                       </button>
                     )}
-                    <span className={isDuplicate 
-                      ? "underline decoration-red-500/80 decoration-wavy underline-offset-4 text-red-400/90" 
+                    <span className={isDuplicate
+                      ? "underline decoration-red-500/80 decoration-wavy underline-offset-4 text-red-400/90"
                       : "text-white/90"
                     }>
                       {line || " "}
@@ -171,16 +170,16 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
                 <span>Đang xử lý: {syncProgress.currentCdkey}</span>
                 <span>{syncProgress.current} / {syncProgress.total} ({Math.round((syncProgress.current / syncProgress.total) * 100)}%)</span>
               </div>
-              
+
               <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                <m.div 
+                <m.div
                   className="h-full bg-gradient-to-r from-blue-500 to-sky-400"
                   initial={{ width: 0 }}
                   animate={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
                   transition={{ duration: 0.15 }}
                 />
               </div>
-              
+
               {syncProgress.remaining.length > 0 && (
                 <div className="text-[10px] text-slate-500 truncate font-mono">
                   Còn lại: {syncProgress.remaining.join(", ")}
@@ -195,20 +194,19 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
                 {inputValue.trim() ? `${inputValue.trim().split('\n').filter(l => l.trim()).length} mã mới` : "Bảng nhập liệu"}
               </span>
             </div>
-            <button 
-              onClick={handleSync} 
-              disabled={isSyncing} 
-              className={`btn-nordic-glass py-2! px-4! transition-all ${
-                hasNewCodes ? 'bg-orange-500/30 text-orange-400 border-orange-500/50 shadow-lg shadow-orange-500/10' : 'text-slate-500 hover:text-slate-300'
-              }`}
+            <button
+              onClick={handleSync}
+              disabled={isSyncing}
+              className={`btn-nordic-glass py-2! px-4! transition-all ${hasNewCodes ? 'bg-orange-500/30 text-orange-400 border-orange-500/50 shadow-lg shadow-orange-500/10' : 'text-slate-500 hover:text-slate-300'
+                }`}
             >
               <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
               <span className="text-xs">{isSyncing ? "Đang đồng bộ..." : "Đồng bộ Server"}</span>
               {hasNewCodes && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse shadow-sm border border-slate-900" />}
             </button>
-            <button 
-              onClick={handleRedeem} 
-              disabled={isSyncing || !inputValue.trim()} 
+            <button
+              onClick={handleRedeem}
+              disabled={isSyncing || !inputValue.trim()}
               className={`btn-nordic-primary py-2! px-6! ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Zap size={18} className="fill-white" />

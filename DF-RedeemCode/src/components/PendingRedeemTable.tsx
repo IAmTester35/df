@@ -1,7 +1,7 @@
 import React from "react";
 import { AlertCircle, RefreshCw, Clock } from "lucide-react";
 import BaseRedeemTable from "./BaseRedeemTable";
-import type { RedeemHistory } from "../hooks/useRedeem";
+import type { RedeemHistory } from "../lib/redeemHelpers";
 
 interface PendingRedeemTableProps {
   pending: RedeemHistory[];
@@ -10,11 +10,11 @@ interface PendingRedeemTableProps {
   isSyncing: boolean;
 }
 
-const PendingRedeemTable: React.FC<PendingRedeemTableProps> = ({ 
-  pending, 
-  onDelete, 
-  onRetry, 
-  isSyncing 
+const PendingRedeemTable: React.FC<PendingRedeemTableProps> = ({
+  pending,
+  onDelete,
+  onRetry,
+  isSyncing
 }) => {
   return (
     <BaseRedeemTable

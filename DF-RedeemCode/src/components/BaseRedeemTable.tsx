@@ -1,7 +1,7 @@
 import React, { type ReactNode } from "react";
 import { Trash2, Cloud, ChevronDown, ChevronUp } from "lucide-react";
 import { m, AnimatePresence } from "motion/react";
-import type { RedeemHistory } from "../hooks/useRedeem";
+import type { RedeemHistory } from "../lib/redeemHelpers";
 
 interface BaseRedeemTableProps {
   title: string;
