@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, Settings, LogOut, CircleUser, Search } from "lucide-react";
+import { Settings, LogOut, CircleUser, Search } from "lucide-react";
 import type { User } from "firebase/auth";
 
 interface NavbarProps {

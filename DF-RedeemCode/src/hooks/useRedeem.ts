@@ -185,6 +185,8 @@ export const useRedeem = () => {
       if (storedPending) setPending(JSON.parse(storedPending));
     } catch (e) {
       console.error("Local load error", e);
+    } finally {
+      setIsInitializing(false);
     }
   }, []);
 
@@ -201,10 +203,15 @@ export const useRedeem = () => {
             const lastSync = typeof data.lastSync === 'number' ? data.lastSync : (typeof data.s === 'number' ? data.s : 0);
             const meta: UserMeta = { ...data, lastSync };
             setUserMeta(meta);
-            localStorage.setItem(LOCAL_SYNC_TIME_KEY, lastSync.toString());
             if (data.masterUrl) {
               setMasterUrl(data.masterUrl);
               localStorage.setItem(LOCAL_MASTER_URL_KEY, data.masterUrl);
+            }
+
+            // Check if local is outdated compared to remote
+            const localLastSync = Number(localStorage.getItem(LOCAL_SYNC_TIME_KEY) || 0);
+            if (localLastSync < lastSync) {
+              setHasNewCodes(true);
             }
           } else {
             const initialMeta: UserMeta = { lastSync: 0, masterUrl };
@@ -217,9 +224,7 @@ export const useRedeem = () => {
           setIsInitializing(false);
         }
       } else {
-        signInAnonymously(auth).then(() => {
-          setIsInitializing(false);
-        }).catch(() => {
+        signInAnonymously(auth).finally(() => {
           setIsInitializing(false);
         });
       }
@@ -417,11 +422,15 @@ export const useRedeem = () => {
       const localKeys = new Set(currentHistory.map(h => h.cdkey.toUpperCase()));
       let addedCount = 0;
 
+      // Use localLastSync instead of remote to ensure we get all codes missing locally
+      const localLastSync = Number(localStorage.getItem(LOCAL_SYNC_TIME_KEY) || 0);
+      const remoteLastSync = userMeta.lastSync;
+
       let syncQuery;
-      if (userMeta.lastSync === 0) {
+      if (localLastSync === 0) {
         syncQuery = query(ref(db, 'c'), orderByValue());
       } else {
-        syncQuery = query(ref(db, 'c'), orderByValue(), startAfter(userMeta.lastSync * 10 + 1));
+        syncQuery = query(ref(db, 'c'), orderByValue(), startAfter(localLastSync * 10 + 1));
       }
 
       const snapshot = await get(syncQuery);
@@ -443,7 +452,7 @@ export const useRedeem = () => {
       const entries = Object.entries(data);
       const newHistoryEntries: RedeemHistory[] = [...currentHistory];
       const config = getParams(masterUrl);
-      let maxProcessedTs = userMeta.lastSync;
+      let maxProcessedTs = Math.max(localLastSync, remoteLastSync);
 
       const syncSummary: { cdkey: string; status: 'success' | 'failure'; msg: string }[] = [];
       const codesToRedeem: string[] = [];
@@ -464,25 +473,41 @@ export const useRedeem = () => {
           continue;
         }
 
-        if (config.openid) {
-          codesToRedeem.push(cdkey);
-          codeMetadata[cdkey] = { ts, safeKey };
-        } else {
-          // No config, just add to history and update maxProcessedTs
+        // If this code was already processed by the user (ts <= remoteLastSync),
+        // we just add it to history directly without redeeming it again
+        if (ts <= remoteLastSync) {
           newHistoryEntries.push({
             id: `v-${safeKey}`,
             cdkey,
-            status: 'success',
-            message: statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Có thể sử dụng (Đồng bộ)',
+            status: statusDigit === 0 ? 'success' : 'failure',
+            message: statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Đầy giới hạn (Đồng bộ)',
             timestamp: ts * 1000
           });
           localKeys.add(upperCdKey);
           addedCount++;
           if (ts > maxProcessedTs) maxProcessedTs = ts;
+        } else {
+          // This is a brand new code (ts > remoteLastSync) that hasn't been processed yet
+          if (config.openid) {
+            codesToRedeem.push(cdkey);
+            codeMetadata[cdkey] = { ts, safeKey };
+          } else {
+            // No config, just add to history and update maxProcessedTs
+            newHistoryEntries.push({
+              id: `v-${safeKey}`,
+              cdkey,
+              status: statusDigit === 0 ? 'success' : 'failure',
+              message: statusDigit === 0 ? 'Thành công (Đồng bộ)' : 'Đầy giới hạn (Đồng bộ)',
+              timestamp: ts * 1000
+            });
+            localKeys.add(upperCdKey);
+            addedCount++;
+            if (ts > maxProcessedTs) maxProcessedTs = ts;
+          }
         }
       }
 
-      let batchResults: any[] = [];
+      let batchResults: RedeemBatchResult[] = [];
       if (codesToRedeem.length > 0) {
         batchResults = await callRedeemBatch(codesToRedeem, config, controller.signal);
         for (const res of batchResults) {
@@ -535,7 +560,7 @@ export const useRedeem = () => {
 
       // Collect pending from sync results
       const newPending = [...pendingRef.current];
-      batchResults.forEach((res: any) => {
+      batchResults.forEach((res: RedeemBatchResult) => {
         if (res.isServerError && !newPending.some(p => p.cdkey === res.cdkey)) {
           newPending.push({
             id: `p-${res.cdkey}-${Date.now()}`,
@@ -594,7 +619,7 @@ export const useRedeem = () => {
       const newEntries: RedeemHistory[] = [];
       const summary: { cdkey: string, msg: string, status: 'success' | 'failure' | 'skipped' }[] = [];
 
-      let batchResults: any[] = [];
+      let batchResults: RedeemBatchResult[] = [];
       if (codesToRun.length > 0) {
         batchResults = await callRedeemBatch(codesToRun, config, controller.signal);
         const nowTs = Math.floor(Date.now() / 1000);

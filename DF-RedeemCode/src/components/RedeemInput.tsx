@@ -82,12 +82,16 @@ const RedeemInput: React.FC<RedeemInputProps> = ({
         const cleaned = finalText.split('\n').map((l: string) => l.trim()).filter(Boolean).join('\n');
         setInputValue(prev => prev ? `${prev}\n${cleaned}` : cleaned);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("OCR Error:", error);
+      let errorMsg = 'Có lỗi xảy ra.';
+      if (error instanceof Error) {
+        errorMsg = error.message || errorMsg;
+      }
       Swal.fire({
         icon: 'error',
         title: 'Lỗi trích xuất',
-        text: error.message || 'Có lỗi xảy ra.'
+        text: errorMsg
       });
     } finally {
       setIsExtracting(false);
