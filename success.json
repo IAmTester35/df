@@ -1528,5 +1528,50 @@
         "cdkey": "WWRestiaCupWW",
         "message": "ok",
         "data": {}
+    },
+    {
+        "cdkey": "ANIMALCUPGUN",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "ANIMALCUPTANK",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "DFANIMALCUP",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "DFSL3145",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "DFSL4412",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "DFSL7183",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "DFSL9108",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "DFUZIRAT47",
+        "message": "ok",
+        "data": {}
+    },
+    {
+        "cdkey": "WELCOMETODF",
+        "message": "ok",
+        "data": {}
     }
 ]

@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const successFile = path.resolve(__dirname, 'success.json');
+const listCodeFile = path.resolve(__dirname, 'list_code.txt');
 const secretFile = path.resolve(__dirname, 'secret.txt');
 const envFile = path.resolve(__dirname, './DF-RedeemCode/.env.local');
 
@@ -100,18 +101,41 @@ async function syncToLocal() {
             }
         });
 
-        if (newlyAdded.length === 0) {
+        // 6. Chuẩn bị danh sách cdkey cho list_code.txt (mỗi code 1 dòng, in hoa, chuẩn hóa)
+        const currentListCode = fs.existsSync(listCodeFile) ? fs.readFileSync(listCodeFile, 'utf8') : '';
+        const listCodeLines = successList
+            .map(item => (item.cdkey || item.code || "")
+                .toString()
+                .replace(/["\u200b\u200c\u200d\uFEFF]/g, "")
+                .trim()
+                .toUpperCase())
+            .filter(Boolean);
+        const expectedListCode = listCodeLines.join('\n') + '\n';
+        const needUpdateListCode = currentListCode !== expectedListCode;
+
+        if (newlyAdded.length === 0 && !needUpdateListCode) {
             console.log("✨ Không có cdkey mới nào cần cập nhật.");
             return;
         }
 
-        // 6. Ghi file ATOMIC (Ghi file tạm sau đó rename)
-        const tempPath = successFile + '.tmp';
-        fs.writeFileSync(tempPath, JSON.stringify(successList, null, 4), 'utf8');
-        fs.renameSync(tempPath, successFile);
+        // 7. Ghi file ATOMIC cho success.json nếu có code mới
+        if (newlyAdded.length > 0) {
+            const tempSuccessPath = successFile + '.tmp';
+            fs.writeFileSync(tempSuccessPath, JSON.stringify(successList, null, 4), 'utf8');
+            fs.renameSync(tempSuccessPath, successFile);
 
-        console.log(`\n✅ Đã cập nhật ${newlyAdded.length} cdkey mới vào success.json:`);
-        newlyAdded.forEach(k => console.log(`   - ${k}`));
+            console.log(`\n✅ Đã cập nhật ${newlyAdded.length} cdkey mới vào success.json:`);
+            newlyAdded.forEach(k => console.log(`   - ${k}`));
+        }
+
+        // 8. Ghi file ATOMIC cho list_code.txt nếu có thay đổi
+        if (needUpdateListCode) {
+            const tempListCodePath = listCodeFile + '.tmp';
+            fs.writeFileSync(tempListCodePath, expectedListCode, 'utf8');
+            fs.renameSync(tempListCodePath, listCodeFile);
+
+            console.log(`✅ Đã cập nhật ${listCodeLines.length} cdkey vào list_code.txt`);
+        }
         
     } catch (error) {
         console.error("❌ Lỗi trong quá trình đồng bộ:", error.message);
